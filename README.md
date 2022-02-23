@@ -1,1 +1,1 @@
-# diy_hydrometric
+# Checklist for DIY monitoring setups
