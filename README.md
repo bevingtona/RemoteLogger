@@ -28,14 +28,15 @@
 </tr>
 <tr class="even">
 <td>Adafruit perma-proto mint tin size breadboard PCB<br />
-<a href="https://www.adafruit.com/product/723">Adafruit</a></td>
+<a href="https://www.adafruit.com/product/723">Adafruit</a>; 
+<a href="https://www.amazon.ca/Adafruit-Perma-Proto-Mint-Breadboard-ADA723/dp/B00XW2JZLS">Amazon</a></td>
 <td>6</td>
 <td>1</td>
 <td></td>
 </tr>
 <tr class="odd">
 <td>Adafruit latching mini relay<br />
-<a href="https://www.adafruit.com/product/2923">A dafruit</a>; 
+<a href="https://www.adafruit.com/product/2923">Adafruit</a>; 
 <a href="https://www.digikey.ca/en/pr%20odu%20cts/detail/adafruit-industries-llc/2923/5979892">Digikey</a></td>
 <td>22</td>
 <td>1</td>
