@@ -7,30 +7,30 @@ A. Bevington
 
 **Equipment**
 
-<table style="width:97%;">
+<table style="width:90%;">
 <colgroup>
-<col style="width: 70%" />
-<col style="width: 9%" />
-<col style="width: 6%" />
-<col style="width: 9%" />
+<col style="width: 45%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
 </colgroup>
 <thead>
 <tr class="header">
 <th>Item</th>
-<th>C AD$</th>
-<th>Qt y.</th>
-<th>H ar d?</th>
+<th>CAD$</th>
+<th>Qty.</th>
+<th>Hard to get?</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td>Feather M0 Adalogger<br />
-<a href="https://www.adafruit.com/product/2796">Adafruit</a><br/>
-<a href="https://www.mouser.ca/ProductDetail/%20Ad%20afruit/2796?qs=ivJcBTDythVHyWdm86fBzQ%3D%3D&amp;mgh=1" class="uri">Mouser</a><br/>
-<a href="https://www.digikey.ca/en/pr%20oducts/%20detail/ad%20afruit-industries-llc/2796/5804105?s=%20N4%20IgT%20CBcDaIGYFMCGAXAFggTgAgLYAZskATJAGwHsBzKrEAXQF8g">Digikey</a></td>
+<a href="https://www.adafruit.com/product/2796">Adafruit</a>; 
+<a href="https://www.mouser.ca/new/adafruit/adafruit-feather-m0-adalogger/" class="uri">Mouser</a>; 
+<a href="https://www.digikey.ca/en/products/detail/adafruit-industries-llc/2796/5804105">Digikey</a></td>
 <td>27</td>
 <td>1</td>
-<td></td>
+<td>Yes</td>
 </tr>
 <tr class="even">
 <td>Adafruit perma-proto mint tin size breadboard PCB<br />
@@ -76,14 +76,14 @@ A. Bevington
 </tr>
 <tr class="even">
 <td>OPTOISO 5KV Transistor W/BASE 6DIP<br />
-<a href="https://www.digikey.ca/en/products/deta%20il/%20vishay-semiconductor-opto-division/4n37/1738524">Digike y</a></td>
+<a href="https://www.digikey.ca/en/products/deta%20il/%20vishay-semiconductor-opto-division/4n37/1738524">Digikey</a></td>
 <td></td>
 <td></td>
 <td></td>
 </tr>
 <tr class="odd">
 <td>Capacitor alum 10UF 20% 50V RADIAL<br />
-<a href="https://www.digikey.ca/en/product%20s/detail/%20rubycon/50YXM10MEFR5X11/11312740?s=N4IgTCB%20cDa%20IIxwBwE4C0BWADATQBoFk5N8BRAMQCV1cFUA5AERAF0BfIA">Digike y</a></td>
+<a href="https://www.digikey.ca/en/product%20s/detail/%20rubycon/50YXM10MEFR5X11/11312740?s=N4IgTCB%20cDa%20IIxwBwE4C0BWADATQBoFk5N8BRAMQCV1cFUA5AERAF0BfIA">Digikey</a></td>
 <td>1</td>
 <td>2</td>
 <td></td>
@@ -125,7 +125,7 @@ A. Bevington
 </tr>
 <tr class="odd">
 <td>TERM BLK 2P SIDE ENT 2.54MM PCB (1528-1974-ND)<br />
-<a href="https://www.digikey.ca/en/products/deta%20il/%20te-connectivity-amp-connectors/282834-2/1150135">Digike y</a></td>
+<a href="https://www.digikey.ca/en/products/deta%20il/%20te-connectivity-amp-connectors/282834-2/1150135">Digikey</a></td>
 <td></td>
 <td></td>
 <td></td>
