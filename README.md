@@ -1,13 +1,7 @@
-Untitled
-================
-A. Bevington
-23/02/2022
 
-# DIY Monitoring
+## Parts list 
 
-**Equipment**
-
-<table style="width:90%;">
+<table style="width:91%;">
 <colgroup>
 <col style="width: 45%" />
 <col style="width: 15%" />
@@ -41,7 +35,8 @@ A. Bevington
 </tr>
 <tr class="odd">
 <td>Adafruit latching mini relay<br />
-<a href="https://www.adafruit.com/product/2923">A dafruit</a>; <a href="https://www.digikey.ca/en/pr%20odu%20cts/detail/adafruit-industries-llc/2923/5979892">Digikey</a></td>
+<a href="https://www.adafruit.com/product/2923">A dafruit</a>; 
+<a href="https://www.digikey.ca/en/pr%20odu%20cts/detail/adafruit-industries-llc/2923/5979892">Digikey</a></td>
 <td>22</td>
 <td>1</td>
 <td></td>
