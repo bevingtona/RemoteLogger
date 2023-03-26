@@ -16,6 +16,7 @@
 #include <ArduinoLowPower.h>  //Needed for putting Feather M0 to sleep
 
 /*Define global constants*/
+
 const byte led = 13;           // Built in led pin
 const byte chipSelect = 4;     // Chip select pin for SD card
 const byte irid_pwr_pin = 6;   // Power base PN2222 transistor pin to Iridium modem
@@ -103,18 +104,26 @@ float unset_relay() {
 
 float read_air_temp() {
   if (! aht.begin()) {
-    Serial.println("Could not find AHT? Check wiring");
-    while (1) delay(10);
+    Serial.println("Could not find AHT. Check wiring");
+    while (1) {
+      digitalWrite(led, HIGH);
+      delay(100);
+      digitalWrite(led, LOW);
+      delay(100);}
   }
   sensors_event_t temp, humidity;
   aht.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
   return temp.temperature;
-}
+  }
 
 float read_air_rh() {
   if (! aht.begin()) {
-    Serial.println("Could not find AHT? Check wiring");
-    while (1) delay(10);
+    Serial.println("Could not find AHT. Check wiring");
+    while (1) {
+      digitalWrite(led, HIGH);
+      delay(100);
+      digitalWrite(led, LOW);
+      delay(100);}
   }
   sensors_event_t temp, humidity;
   aht.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
@@ -236,40 +245,90 @@ String hourly_to_irid(){
   return datastring_msg;
   }
   
-float send_iridium(String datastring){
-
-  Serial.print("Trying to send...\r\n");
-  Serial.println(datastring);
-  
+float send_msg(String msg){
   pinMode(irid_pwr_pin, OUTPUT);     //Set iridium power pin as OUTPUT
   digitalWrite(irid_pwr_pin, HIGH);   //Drive iridium power pin LOW
   delay(2000);
 
+  int signalQuality = -1;
   int err;
   
+  // Start the console serial port
+  Serial.begin(115200);
   while (!Serial);
-  
-  modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);// Prevent from trying to charge to quickly, low current setup
 
-//  IridiumSerial.begin(19200);
+  // Start the serial port connected to the satellite modem
+  IridiumSerial.begin(19200);
 
+  // Begin satellite modem operation
+  Serial.println("Starting modem...");
   err = modem.begin();
-  
-  // This transmission may take a long time, but the LED keeps blinking
-  modem.sendSBDText(datastring.c_str());
-  
-  err = modem.sendSBDText(datastring.c_str());    
+  if (err != ISBD_SUCCESS)
+  {
+    Serial.print("Begin failed: error ");
+    Serial.println(err);
+    if (err == ISBD_NO_MODEM_DETECTED)
+      Serial.println("No modem detected: check wiring.");
+    return 1;
+  }
 
-  String datastring3 = rtc.now().timestamp() + ",,,,," + err;
-  write_to_csv(datastring3);
+  // Example: Print the firmware revision
+  char version[12];
+  err = modem.getFirmwareVersion(version, sizeof(version));
+  if (err != ISBD_SUCCESS)
+  {
+     Serial.print("FirmwareVersion failed: error ");
+     Serial.println(err);
+     return 1;
+  }
+  Serial.print("Firmware Version is ");
+  Serial.print(version);
+  Serial.println(".");
+
+  err = modem.getSignalQuality(signalQuality);
+  if (err != ISBD_SUCCESS)
+  {
+    Serial.print("SignalQuality failed: error ");
+    Serial.println(err);
+    return 1;
+  }
+
+  Serial.print("On a scale of 0 to 5, signal quality is currently ");
+  Serial.print(signalQuality);
+  Serial.println(".");
+
+  // Send the message
+  Serial.print("Trying to send the message.  This might take several minutes.\r\n");
+  err = modem.sendSBDText(msg.c_str());
+
+  Serial.println(err); 
   
-  digitalWrite(irid_pwr_pin, LOW);
-  
-  Serial.println(err);
-  Serial.println();
+  if (err != ISBD_SUCCESS)
+  {
+    Serial.print("sendSBDText failed: error ");
+    Serial.println(err);
+    if (err == ISBD_SENDRECEIVE_TIMEOUT)
+      Serial.println("Try again with a better view of the sky.");
+  }
+
+  else
+  {
+    Serial.println("Hey, it worked!");
+  }
+  digitalWrite(irid_pwr_pin, LOW);   //Drive iridium power pin LOW
   return 1;
-}
+  }
 
+float remove_hourly(){
+    if(SD.exists("HOURLY.csv")) {
+    Serial.println("HOURLY.csv exists");
+    SD.remove("HOURLY.csv");
+    }else{
+    Serial.println("HOURLY.csv doesn't exist");
+    }
+    return 1;
+    }
+    
 void setup() {
 
   // START SERIAL, WAIT 2 SECS
@@ -285,13 +344,8 @@ void setup() {
     }
 
   // REMOVE HOURLY ON STARTUP
-  if(SD.exists("HOURLY.csv")) {
-    Serial.println("HOURLY.csv exists");
-    SD.remove("HOURLY.csv");
-    }else{
-    Serial.println("HOURLY.csv doesn't exist");
-    }
-
+  remove_hourly();
+  
   // READ PARAMS
   CSV_Parser cp("ddsssss", true, ',');  //Set paramters for parsing the parameter file PARAM.txt
 
@@ -346,7 +400,7 @@ void setup() {
   
   if (onstart_sync_clock_string == String("T")) {
     set_relay();
-    Serial.print("SYNC RTC CLOCK TO PC CLOCK TZ"); // DO NOT SHARE RTC POWER OR GROUND WITH RELAY
+    Serial.println("SYNC RTC CLOCK TO PC CLOCK TZ"); // DO NOT SHARE RTC POWER OR GROUND WITH RELAY
     if (! rtc.begin()) {
       Serial.println("Couldn't find RTC");
       Serial.flush();
@@ -370,65 +424,17 @@ void setup() {
   // TEST IRIDIUM IF TRUE //////////////////////////////////////////////////////////
   
   if (onstart_irid_check_string == String("T")) {
-
-    pinMode(irid_pwr_pin, OUTPUT);     //Set iridium power pin as OUTPUT
-    digitalWrite(irid_pwr_pin, HIGH);   //Drive iridium power pin LOW
-    delay(2000);
-
-    int signalQuality = -1;
-    int err;
-
-    while (!Serial);
-
-    IridiumSerial.begin(19200);
-
-    Serial.println("Starting modem...");
-    
-    err = modem.begin();
-    
-    if (err != ISBD_SUCCESS) {
-      Serial.print("Begin failed: error ");
-      Serial.println(err);
-      
-      if (err == ISBD_NO_MODEM_DETECTED)
-        Serial.println("No modem detected: check wiring.");
-      return;
-    }
-    
-    err = modem.getSignalQuality(signalQuality);
-    
-    if (err != ISBD_SUCCESS) {
-      Serial.print("SignalQuality failed: error ");
-      Serial.println(err);
-      return;
-      }
-
-    Serial.print("Signal quality ");
-    Serial.print(signalQuality);
-    Serial.println();
-    IridiumSerial.end();
-
-    // TEST IRIDIUM IF TRUE //////////////////////////////////////////////////////////
-
-    if (onstart_irid_check_string == String("T")) {
-      
-      send_iridium(msmt);
-      
-    }
-    
-    digitalWrite(irid_pwr_pin, LOW);
-    
+    send_msg(msmt);
   }
-
 }
 
 void loop() {
 
   DateTime sample_start_time = print_now();
-
-  int16_t sample_int_s = 60*1;
-  int16_t irid_freq_h = 1;
   
+  int16_t sample_int_s = 60;
+  int16_t irid_freq_h = 1;
+
   // ONLY SAMPLE ON 0 SECONDS
   if(sample_start_time.second() == 0) {
 
@@ -437,7 +443,7 @@ void loop() {
       
       // TAKE MEASUREMENT
       String msmt = take_measurement();//
-      write_to_csv(msmt+",");
+      write_to_csv(msmt+",msmt");
       
       // WRITE TO HOURLY ON HOUR
       if(sample_start_time.hour() % 1 == 0 & sample_start_time.minute() == 0) {
@@ -454,15 +460,9 @@ void loop() {
           metrics_code = (char **)cp["metrics_code"]; 
 
           String irid_msg = hourly_to_irid();
-          send_iridium(irid_msg);  
+          send_msg(irid_msg);  
 
-          if(SD.exists("HOURLY.csv")) {
-          Serial.println("HOURLY.csv exists");
-          SD.remove("HOURLY.csv");
-          }else{
-          Serial.println("HOURLY.csv doesn't exist");
-          }
-          
+          remove_hourly();          
           }
          }
 
@@ -471,9 +471,102 @@ void loop() {
     int32_t delay_seconds = sample_start_time.unixtime() + sample_int_s - sample_end_time.unixtime();// sample_start + interval_end - sample_end = delay
     // Serial.println(delay_seconds);
     uint32_t sleep_time = 1000 * (delay_seconds - 3); // delay - 3 second buffer to milliseconds
-//    delay(sleep_time); 
-     LowPower.sleep(sleep_time);
+    delay(sleep_time); 
+//     LowPower.sleep(sleep_time);
     }
    }
    delay(1000);
   }
+
+
+
+//    pinMode(irid_pwr_pin, OUTPUT);     //Set iridium power pin as OUTPUT
+//    digitalWrite(irid_pwr_pin, HIGH);   //Drive iridium power pin LOW
+//    delay(2000);
+//
+//    int signalQuality = -1;
+//    int err;
+//
+//    while (!Serial);
+//    modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);// Prevent from trying to charge to quickly, low current setup
+//    IridiumSerial.begin(19200);
+//    Serial.println("Starting modem...");
+//    err = modem.begin();
+//    
+//    if (err != ISBD_SUCCESS) {
+//      Serial.print("Begin failed: error ");
+//      Serial.println(err);  
+//      if (err == ISBD_NO_MODEM_DETECTED){
+//        Serial.println("No modem detected: check wiring.");}
+//        }
+//    
+//    for (int16_t i = 0; i < 10; i++)  //Take N samples
+//    {
+//      err = modem.getSignalQuality(signalQuality);
+////      Serial.print("SignalQuality failed: error ");
+//      Serial.println(signalQuality);
+//      return;
+//      }
+//  
+////      Serial.print("Signal quality ");
+////      Serial.print(signalQuality);
+////      Serial.println();
+////    
+////    IridiumSerial.end();
+//
+//    // TEST IRIDIUM IF TRUE //////////////////////////////////////////////////////////
+//
+//    if (onstart_irid_check_string == String("T")) {
+//
+//      float retry = 1;
+//        for (int16_t i = 0; i < 10; i++)  //Take N samples
+//          {
+//            Serial.println(i);
+//            if(retry == 1){
+//            Serial.println(retry);
+//              
+//              err = modem.getSignalQuality(signalQuality);
+//              Serial.println("signalQuality " + err);
+//              
+//              err = send_iridium(msmt);
+//              Serial.println("msg " + err);
+//              
+//              if(err == 10){
+//                retry = 0;}
+//              }
+//      
+//    }}
+//    
+//    digitalWrite(irid_pwr_pin, LOW);
+//    
+
+//float send_iridium(String datastring){
+//
+//  Serial.print("Trying to send...\r\n");
+//  Serial.println(datastring);
+//  
+//  pinMode(irid_pwr_pin, OUTPUT);     //Set iridium power pin as OUTPUT
+//  digitalWrite(irid_pwr_pin, HIGH);   //Drive iridium power pin LOW
+//  delay(2000);
+//
+//  int err;
+//  
+//  while (!Serial);  
+//  modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);// Prevent from trying to charge to quickly, low current setup
+//  IridiumSerial.begin(19200);
+//  err = modem.begin();
+//  
+//  // This transmission may take a long time, but the LED keeps blinking
+//  modem.sendSBDText(datastring.c_str());
+//  
+//  err = modem.sendSBDText(datastring.c_str());    
+//
+//  String datastring3 = rtc.now().timestamp() + ",,,,," + err;
+//  write_to_csv(datastring3);
+//  
+//  digitalWrite(irid_pwr_pin, LOW);
+//  
+//  Serial.println(err);
+//  Serial.println();
+//  return err;
+//  }
