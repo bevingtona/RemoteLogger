@@ -12,11 +12,11 @@
 const byte led = 13;           // Built in led pin
 const byte chipSelect = 4;     // Chip select pin for SD card
 const byte irid_pwr_pin = 6;   // Power base PN2222 transistor pin to Iridium modem
-const byte PeriSetPin = 12;     // Power relay set pin for all 3.3V peripheral
+const byte PeriSetPin = 12;    // Power relay set pin for all 3.3V peripheral
 const byte PeriUnsetPin = 13;  // Power relay unset pin for all 3.3V peripheral
 const byte pulsePin = 11;      // Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger
 const byte triggerPin = 10;    // Range start / stop pin for MaxBotix MB7369 ultrasonic ranger
-const byte vbatPin = 9;        // If something is plugged into pin 9, then th voltage will be wrong
+const byte vbatPin = 9;        // WARNING: If something is plugged into pin 9, then th voltage will be wrong
 const int  alogRes = 12;       // Define anlog read resolution as 12 bit
 float vbat;
 
@@ -152,10 +152,10 @@ float write_to_csv(String datastring) {
   return 1;
 }
 
-float write_to_hourly(String datastring) {
+float write_to_irid_temp(String datastring) {
 
   // FILENAME
-  String outname = "HOURLY.csv";
+  String outname = "IRID.csv";
 
   // IF FILE DOES NOT EXIST, WRITE HEADER AND DATA, ELSE, WITE DATA
   if (!SD.exists(outname))  //Write header if first time writing to the logfile
@@ -176,30 +176,29 @@ float write_to_hourly(String datastring) {
   return 1;
 }
 
-String hourly_to_irid(){
+String irid_temp_to_irid(){
 
   SD.begin(chipSelect);
   CSV_Parser cp("sffff", true, ',');  // Set paramters for parsing the log file
-  cp.readSDfile("HOURLY.csv");  // Read HOURLY.csv file from SD
-  char **datetimes;    //pointer to datetimes
-  float *distances;  //pointer to distances
-  float *air_temps;    //pointer to air temps
-  float *rhs;          //pointer to RHs
-  float *batv;          //pointer to V
+  cp.readSDfile("IRID.csv");     // Read IRID.csv file from SD
+  char **datetimes;   //pointer to datetimes
+  float *distances;   //pointer to distances
+  float *air_temps;   //pointer to air temps
+  float *rhs;         //pointer to RHs
+  float *batv;        //pointer to V
   int num_rows = cp.getRowsCount();  //Get # of rows
 
-  datetimes = (char **)cp["datetime"];  //populate datetimes
-  distances = (float *)cp["distance_mm"];  //populate snow depths
-  air_temps = (float *)cp["air_temp_deg_c"];  //populate air temps
-  rhs = (float *)cp["rh_prct"];               //populate RHs
-  batv = (float *)cp["bat_v"];               //populate V
+  datetimes = (char **)cp["datetime"];        // populate datetimes
+  distances = (float *)cp["distance_mm"];     // populate snow depths
+  air_temps = (float *)cp["air_temp_deg_c"];  // populate air temps
+  rhs = (float *)cp["rh_prct"];               // populate RHs
+  batv = (float *)cp["bat_v"];                // populate V
   
   String datastring_msg = " " + String(metrics_code[0]) + ":" + String(datetimes[0]).substring(2, 4) + String(datetimes[0]).substring(5, 7) + String(datetimes[0]).substring(8, 10) + String(datetimes[0]).substring(11, 13) + ":" + String(round(batv[num_rows-1] * 10)) + ":";
-  
-  for (int i = 0; i < num_rows; i++) {  //For each observation in the HOURLY.csv
+ 
+  for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
     datastring_msg = datastring_msg + String(round(distances[i])) + ',' + String(round(air_temps[i]*10)) + ',' + String(round(rhs[i]*10)) + ':';              
     }
-
   return datastring_msg;
   }
   
@@ -213,6 +212,7 @@ float send_msg(String msg){
   while (!Serial);
   IridiumSerial.begin(19200);  // Start the serial port connected to the satellite modem
   Serial.println("Starting modem...");  // Begin satellite modem operation
+  //IridiumSerial.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // This is a low power application
   err = modem.begin();
   err = modem.sendSBDText(msg.c_str());
   if (err != ISBD_SUCCESS){
@@ -226,29 +226,29 @@ float send_msg(String msg){
   return 1;
   }
 
-float hourly_msg_test(){
-  remove_hourly();
+float irid_temp_msg_test(){
+  remove_irid_temp();
   String msmt = take_measurement(rtc.now().timestamp());
-  write_to_hourly(msmt);
-  write_to_hourly(msmt);
-  write_to_hourly(msmt);
-  write_to_hourly(msmt);
-  write_to_hourly(msmt);
-  String irid_msg = hourly_to_irid();
+  write_to_irid_temp(msmt);
+  write_to_irid_temp(msmt);
+  write_to_irid_temp(msmt);
+  write_to_irid_temp(msmt);
+  write_to_irid_temp(msmt);
+  String irid_msg = irid_temp_to_irid();
   Serial.println("irid: " + irid_msg);
-  remove_hourly();
+  remove_irid_temp();
   return 1;
-  }
+}
 
-float remove_hourly(){
-    if(SD.exists("HOURLY.csv")) {
-    Serial.println("HOURLY.csv exists, remove");
-    SD.remove("HOURLY.csv");
-    }else{
-    Serial.println("HOURLY.csv doesn't exist");
-    }
-    return 1;
-    }
+float remove_irid_temp(){
+  if(SD.exists("IRID.csv")) {
+    Serial.println("IRID.csv exists, remove");
+    SD.remove("IRID.csv");
+  }else{
+    Serial.println("IRID.csv doesn't exist");
+  }
+  return 1;
+}
     
 void setup() {
 
@@ -264,8 +264,8 @@ void setup() {
     delay(2000);
     }
 
-  // REMOVE HOURLY ON STARTUP
-  remove_hourly();
+  // REMOVE IRID_TEMP ON STARTUP
+  remove_irid_temp();
   
   // READ PARAMS
   CSV_Parser cp("ddssss", true, ',');  //Set paramters for parsing the parameter file PARAM.txt
@@ -339,63 +339,65 @@ void setup() {
 
   // TEST IRIDIUM IF TRUE //////////////////////////////////////////////////////////
   
-  if (onstart_irid_check_string == String("T")) {
+  if (onstart_irid_check_string == String("TT")) {
     send_msg(msmt);
   }
-    //  hourly_msg_test();
+  
+  // irid_temp_msg_test(); // TEST IRIDIUM FUNCTIONS
 }
 
 void loop() {
 
+  Serial.begin(9600);
   DateTime sample_start_time = rtc.now();
   Serial.println(sample_start_time.timestamp());
   
-  int16_t sample_int_s = 600;
-  int16_t irid_freq_h = 1;
+  int16_t sample_int_m = 1;
+  int16_t irid_sample_freq_m = 5;
+  int16_t irid_msg_freq_m = 10;
 
   // ONLY SAMPLE ON 0 SECONDS
   if(sample_start_time.second() == 0) {
-
+    
     // SAMPLE ON INTERVAL
-    if(sample_start_time.minute() % (sample_int_s/60) == 0){
+    if(sample_start_time.minute() % sample_int_m == 0){
       
       // TAKE MEASUREMENT
       String msmt = take_measurement(sample_start_time.timestamp());//
       Serial.println("msmt: " + msmt);
       write_to_csv(msmt+",");
       
-      // WRITE TO HOURLY ON HOUR
-      if(sample_start_time.hour() % 1 == 0 & sample_start_time.minute() == 0) {
-        
-        // WRITE TO HOURLY
-        Serial.println("hourly: " + msmt);
-        write_to_hourly(msmt);
+      // WRITE TO IRID_TEMP ON HOUR
+      if(sample_start_time.minute() % irid_sample_freq_m == 0) {
+                
+        // WRITE TO IRID_TEMP
+        Serial.println("irid_temp: " + msmt);
+        write_to_irid_temp(msmt);
 
         // SEND IRIDIUM IF IRID MODULUS == 0
-        if(sample_start_time.hour() % irid_freq_h == 0) {
-          
+        if(sample_start_time.minute() % irid_msg_freq_m == 0) {
+        
           SD.begin(chipSelect);
           CSV_Parser cp("ddssss", true, ',');  
           cp.readSDfile("PARAM.txt");
           metrics_code = (char **)cp["metrics_code"]; 
           
-          String irid_msg = hourly_to_irid();
+          String irid_msg = irid_temp_to_irid();
           Serial.println("irid: " + irid_msg);
+          
           send_msg(irid_msg);  
-
-          remove_hourly();          
-          }
-         }
+          remove_irid_temp();          
+        }
+      }
 
     // SLEEP
-    digitalWrite(led, LOW);
     DateTime sample_end_time = rtc.now();
-    int32_t delay_seconds = sample_start_time.unixtime() + sample_int_s - sample_end_time.unixtime();// sample_start + interval_end - sample_end = delay
-    Serial.println(delay_seconds);
-    uint32_t sleep_time = 1000 * (delay_seconds - 3); // delay - 3 second buffer to milliseconds
-     delay(sleep_time); 
-    //    LowPower.sleep(sleep_time);
+    int32_t delay_seconds = sample_start_time.unixtime() + (sample_int_m*60) - sample_end_time.unixtime();
+    Serial.println(delay_seconds - 1);
+    uint32_t sleep_time = 1000 * (delay_seconds - 1); // delay - 1s
+    LowPower.sleep(sleep_time);// 
+    // delay(sleep_time); 
     }
-   }
-   delay(1000);
   }
+  delay(1000);
+}
