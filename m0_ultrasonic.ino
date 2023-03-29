@@ -37,8 +37,8 @@ QuickStats stats;                 //initialize an instance of QuickStats class
 /*Variable names from Params CSV*/
 String header = "datetime,distance_mm,air_temp_deg_c,rh_prct,bat_v";
 String msmt;
-int16_t *sample_int_s;
-int16_t *irid_freq_h; // Iridium transmit freqency in hours (Read from PARAM.txt)
+int16_t *sample_int_m;
+int16_t *irid_msg_freq_h; // Iridium transmit freqency in hours (Read from PARAM.txt)
 int16_t n_samples = 2; //Number of ultrasonic reange sensor readings to average.
 char **metrics_code; // Three letter code for Iridium string, e.g., 'A' for stage 'E' for snow depth (see metrics_lookup in database)
 char **onstart_sync_clock;
@@ -288,14 +288,14 @@ void setup() {
     }
 
   // READ SAMPLE INTERVAL
-  sample_int_s = (int16_t *)cp["sample_int_s"];
-  String sample_int_s_string = String(sample_int_s[0]);
-  Serial.print("Sample interval: " + sample_int_s_string + " seconds\r\n");
+  sample_int_m = (int16_t *)cp["sample_int_m"];
+  String sample_int_m_string = String(sample_int_m[0]);
+  Serial.print("Sample interval: " + sample_int_m_string + " minutes\r\n");
 
   // READ IRIDIUM FREQUENCY
-  irid_freq_h = (int16_t *)cp["irid_freq_h"];   //Get iridium freqency in hours from parameter file
-  String irid_freq_h_string = String(irid_freq_h[0]);
-  Serial.print("Iridium frequency: " + irid_freq_h_string + " hours\r\n");
+  irid_msg_freq_h = (int16_t *)cp["irid_msg_freq_h"];   //Get iridium freqency in hours from parameter file
+  String irid_msg_freq_h_string = String(irid_msg_freq_h[0]);
+  Serial.print("Iridium frequency: " + irid_msg_freq_h_string + " hours\r\n");
 
   // READ LETTER CODES
   metrics_code = (char **)cp["metrics_code"];             //Get metrics letter code string from parameter file
@@ -344,7 +344,7 @@ void setup() {
 
   // TEST IRIDIUM IF TRUE //////////////////////////////////////////////////////////
   
-  if (onstart_irid_check_string == String("TT")) {
+  if (onstart_irid_check_string == String("T")) {
     send_msg(msmt);
   }
   
@@ -356,9 +356,6 @@ void loop() {
   Serial.begin(9600);
   DateTime sample_start_time = rtc.now();
   Serial.println(sample_start_time.timestamp());
-  
-  int16_t sample_int_m = 5;
-  int16_t irid_msg_freq_h = 1;
 
   // ONLY SAMPLE ON 0 SECONDS
   if(sample_start_time.second() == 0) {
@@ -372,22 +369,22 @@ void loop() {
     digitalWrite(led, LOW);
     
     // SAMPLE ON INTERVAL
-    if(sample_start_time.minute() % sample_int_m == 0){
+    if(sample_start_time.minute() % sample_int_m[0] == 0){
       
       // TAKE MEASUREMENT
       String msmt = take_measurement(sample_start_time.timestamp());
       Serial.println("msmt: " + msmt);
       write_to_csv(msmt+",");
       
-      // WRITE TO IRID_TEMP ON HOUR
-      if(sample_start_time.hour() % 1 == 0) {
+      // WRITE TO IRID_TEMP ON HOUR & Minute == 0
+      if(sample_start_time.hour() % 1 == 0 & sample_start_time.minute() == 0) {
                 
         // WRITE TO IRID_TEMP
         Serial.println("irid_temp: " + msmt);
         write_to_irid_temp(msmt);
 
-        // SEND IRIDIUM IF IRID MODULUS == 0 & Minute == 0
-        if(sample_start_time.hour() % irid_msg_freq_h == 0 & sample_start_time.minute() == 0) {
+        // SEND IRIDIUM IF IRID MODULUS == 0
+        if(sample_start_time.hour() % irid_msg_freq_h[0] == 0) {
         
           SD.begin(chipSelect);
           CSV_Parser cp("ddssss", true, ',');  
