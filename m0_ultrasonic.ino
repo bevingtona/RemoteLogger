@@ -202,7 +202,7 @@ String irid_temp_to_irid(){
   }
   
 float send_msg(String msg, float timeout_s, float retry_n, String quality){
-  
+
   pinMode(irid_pwr_pin, OUTPUT);     //Set iridium power pin as OUTPUT
   digitalWrite(irid_pwr_pin, HIGH);   //Drive iridium power pin LOW
   delay(2000);
@@ -275,19 +275,30 @@ float remove_irid_temp(){
   }
   return 1;
 }
-    
+
+float blinky(int16_t repeat, int16_t high_s, int16_t low_s){
+  if(repeat>0){
+    for (int16_t i = 1; i < repeat; i++)  //Take N samples
+    {
+      digitalWrite(led, HIGH);
+      delay(high_s);
+      digitalWrite(led, LOW);
+      delay(low_s);
+      }
+    }
+  return 1;
+  }
+  
 void setup() {
 
   // START SERIAL, WAIT 2 SECS
   Serial.begin(9600);
-  delay(5000); 
+
+  blinky(10, 200, 1800);
 
   // CHECK IF SD ELSE 1 BEEP
   while (!SD.begin(chipSelect)) {
-    digitalWrite(led, HIGH);
-    delay(200);
-    digitalWrite(led, LOW);
-    delay(2000);
+    blinky(1, 200, 200);
     }
 
   // REMOVE IRID_TEMP ON STARTUP
@@ -298,14 +309,7 @@ void setup() {
 
   // READ SD 2 BEEPS
   while (!cp.readSDfile("/PARAM.txt")) {
-    digitalWrite(led, HIGH);
-    delay(200);
-    digitalWrite(led, LOW);
-    delay(200);
-    digitalWrite(led, HIGH);
-    delay(200);
-    digitalWrite(led, LOW);
-    delay(2000);
+    blinky(2, 200, 200);
     }
 
   // READ SAMPLE INTERVAL
@@ -341,7 +345,7 @@ void setup() {
   // SYNC CLOCK IF TRUE ////////////////////////////////////////////////////////////
   
   if (onstart_sync_clock_string == String("T")) {
-    set_relay();
+//    set_relay();
     Serial.println("SYNC RTC CLOCK TO PC CLOCK TZ"); // DO NOT SHARE RTC POWER OR GROUND WITH RELAY
     if (! rtc.begin()) {
       Serial.println("Couldn't find RTC");
@@ -351,7 +355,7 @@ void setup() {
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
     Serial.println(rtc.now().timestamp());
     Serial.println();
-    unset_relay();
+//    unset_relay();
     }
 
   // PRINT VALS AND SAVE TO CARD ///////////////////////////////////////////////////
@@ -367,7 +371,6 @@ void setup() {
   if (onstart_irid_check_string == String("T")) {
     send_msg("Sample: " + msmt,60,2,"T");
   }
-  
 //   irid_temp_msg_test(); // TEST IRIDIUM FUNCTIONS
 }
 
@@ -375,22 +378,24 @@ void loop() {
 
   Serial.begin(9600);
   DateTime sample_start_time = rtc.now();
-  Serial.println(sample_start_time.timestamp());
+  Serial.println("Waiting start: " + sample_start_time.timestamp());
 
   // ONLY SAMPLE ON 0 SECONDS
   if(sample_start_time.second() == 0) {
 
-    digitalWrite(led, HIGH);
-    delay(100);
-    digitalWrite(led, LOW);
-    delay(100);
-    digitalWrite(led, HIGH);
-    delay(200);
-    digitalWrite(led, LOW);
+    // READ PARAMS
+    CSV_Parser cp("ddssss", true, ',');  //Set paramters for parsing the parameter file PARAM.txt
+    while (!cp.readSDfile("/PARAM.txt")) {blinky(2, 200, 200);}
+    sample_int_m = (int16_t *)cp["sample_int_m"];
+    irid_msg_freq_h = (int16_t *)cp["irid_msg_freq_h"];   //Get iridium freqency in hours from parameter file
+    metrics_code = (char **)cp["metrics_code"];             //Get metrics letter code string from parameter file
+
+    // SIGN OF LIFE 1/min
+    blinky(2,200,200);
     
-    // SAMPLE ON INTERVAL
+    // SAMPLE ON MINUTE INTERVAL
     if(sample_start_time.minute() % sample_int_m[0] == 0){
-      
+        
       // TAKE MEASUREMENT
       String msmt = take_measurement(sample_start_time.timestamp());
       Serial.println("msmt: " + msmt);
@@ -417,19 +422,9 @@ void loop() {
           send_msg(irid_msg, 300, 1, "F");  
           remove_irid_temp();          
         }
-      
-      // SLEEP FOR ENTIRE INTERVAL AFTER MEASUREMENT (NO BLINKY)
-      //    DateTime sample_end_time = rtc.now();
-      //    int32_t delay_seconds = sample_start_time.unixtime() + (sample_int_m*60) - sample_end_time.unixtime();
-      //    Serial.println(delay_seconds - 1);
-      //    if(delay_seconds>0){
-      //      Serial.println("sleep");
-      //      uint32_t sleep_time = 1000 * (delay_seconds - 1); // delay - 1s
-      //      LowPower.sleep(sleep_time);
-      //      // delay(sleep_time);
+       }
       }
-    }
-    
+      
     // SLEEP 1 MINUTE, WAKE ON SECOND, BLINK !!
     DateTime sample_end_time = rtc.now();
     DateTime sample_end_time_simple = DateTime(sample_end_time.year(),
@@ -441,9 +436,20 @@ void loop() {
     DateTime sample_end_time_simple_plus = sample_end_time_simple + TimeSpan(0,0,1,0);
     int32_t delay_seconds = sample_end_time_simple_plus.unixtime() - sample_end_time.unixtime();
     Serial.println(delay_seconds);
-    uint32_t sleep_time = 1000 * (delay_seconds - 3); // delay - 1s
+    uint32_t sleep_time = 1000 * (delay_seconds - 1); // delay - 1s
     LowPower.sleep(sleep_time);
     // delay(sleep_time);  
   }
   delay(1000);
 }
+
+
+      // SLEEP FOR ENTIRE INTERVAL AFTER MEASUREMENT (NO BLINKY)
+      //    DateTime sample_end_time = rtc.now();
+      //    int32_t delay_seconds = sample_start_time.unixtime() + (sample_int_m*60) - sample_end_time.unixtime();
+      //    Serial.println(delay_seconds - 1);
+      //    if(delay_seconds>0){
+      //      Serial.println("sleep");
+      //      uint32_t sleep_time = 1000 * (delay_seconds - 1); // delay - 1s
+      //      LowPower.sleep(sleep_time);
+      //      // delay(sleep_time);
