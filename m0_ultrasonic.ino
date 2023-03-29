@@ -201,32 +201,53 @@ String irid_temp_to_irid(){
   return datastring_msg;
   }
   
-float send_msg(String msg){
+float send_msg(String msg, float timeout_s, float retry_n, String quality){
   
   pinMode(irid_pwr_pin, OUTPUT);     //Set iridium power pin as OUTPUT
   digitalWrite(irid_pwr_pin, HIGH);   //Drive iridium power pin LOW
   delay(2000);
   int err;
   
-  //  Serial.begin(115200);// Start the console serial port
-  while (!Serial);
   IridiumSerial.begin(19200);  // Start the serial port connected to the satellite modem
-  Serial.println("Starting modem...");  // Begin satellite modem operation
-  
+  Serial.println("Starting modem...");  // Begin satellite modem operation  
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // This is a low power application
   err = modem.begin();
-  err = modem.sendSBDText(msg.c_str());
-  if (err != 0 && err != 13)// If first attemped failed try once more with extended timeout
+
+  if(quality == "T"){
+    int signalQuality = -1;
+    if (err != ISBD_SUCCESS)
     {
-      err = modem.begin();
-      modem.adjustSendReceiveTimeout(500);
-      err = modem.sendSBDText(msg.c_str());
-    }  
-  //  if (err != ISBD_SUCCESS){
-  //    Serial.println("Failed..");
-  //  }else{
-  //    Serial.println("Success..");
-  //  } 
+      Serial.print("Begin failed: error ");
+      Serial.println(err);
+      if (err == ISBD_NO_MODEM_DETECTED)
+        Serial.println("No modem detected: check wiring.");
+    }
+    
+    for (int16_t i = 0; i < 5; i++) {
+      err = modem.getSignalQuality(signalQuality);
+      Serial.print("Quality is currently ");
+      Serial.println(signalQuality);
+      }
+  }
+
+  modem.adjustSendReceiveTimeout(timeout_s);
+  Serial.println("Attempt #1 " + String(timeout_s) +"s");
+  err = modem.sendSBDText(msg.c_str());
+  if(retry_n > 0){
+  for (int16_t i = 0; i < retry_n; i++) {
+    if(err != ISBD_SUCCESS)//err != 0 && err != 13)// If first attemped failed try once more with extended timeout
+      {
+        modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // This is a low power application
+        err = modem.begin(); 
+        modem.adjustSendReceiveTimeout(timeout_s);
+          Serial.println("Attempt #" + String(i) + " " + String(timeout_s) +"s");
+          err = modem.sendSBDText(msg.c_str());
+      }
+    }
+  }  
+  if(err == ISBD_SUCCESS){
+    Serial.println("IRID SUCCESS");
+  }
   digitalWrite(irid_pwr_pin, LOW);   //Drive iridium power pin LOW
   return 1;
   }
@@ -343,9 +364,8 @@ void setup() {
     }
 
   // TEST IRIDIUM IF TRUE //////////////////////////////////////////////////////////
-  
   if (onstart_irid_check_string == String("T")) {
-    send_msg(msmt);
+    send_msg("Sample: " + msmt,60,2,"T");
   }
   
 //   irid_temp_msg_test(); // TEST IRIDIUM FUNCTIONS
@@ -394,7 +414,7 @@ void loop() {
           String irid_msg = irid_temp_to_irid();
           Serial.println("irid: " + irid_msg);
           
-          send_msg(irid_msg);  
+          send_msg(irid_msg, 300, 1, "F");  
           remove_irid_temp();          
         }
       
