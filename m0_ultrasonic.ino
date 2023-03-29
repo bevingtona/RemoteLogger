@@ -44,7 +44,6 @@ char **metrics_code; // Three letter code for Iridium string, e.g., 'A' for stag
 char **onstart_sync_clock;
 char **onstart_print_vals;
 char **onstart_irid_check;
-int16_t counter = 1;
 
 /* Define User Functions */
 
@@ -194,7 +193,7 @@ String irid_temp_to_irid(){
   rhs = (float *)cp["rh_prct"];               // populate RHs
   batv = (float *)cp["bat_v"];                // populate V
   
-  String datastring_msg = " " + String(metrics_code[0]) + ":" + String(datetimes[0]).substring(2, 4) + String(datetimes[0]).substring(5, 7) + String(datetimes[0]).substring(8, 10) + String(datetimes[0]).substring(11, 13) + ":" + String(round(batv[num_rows-1] * 10)) + ":";
+  String datastring_msg = String(metrics_code[0]) + ":" + String(datetimes[0]).substring(2, 4) + String(datetimes[0]).substring(5, 7) + String(datetimes[0]).substring(8, 10) + String(datetimes[0]).substring(11, 13) + ":" + String(round(batv[num_rows-1] * 10)) + ":";
  
   for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
     datastring_msg = datastring_msg + String(round(distances[i])) + ',' + String(round(air_temps[i]*10)) + ',' + String(round(rhs[i]*10)) + ':';              
@@ -208,21 +207,27 @@ float send_msg(String msg){
   digitalWrite(irid_pwr_pin, HIGH);   //Drive iridium power pin LOW
   delay(2000);
   int err;
-  Serial.begin(115200);// Start the console serial port
+  
+  //  Serial.begin(115200);// Start the console serial port
   while (!Serial);
   IridiumSerial.begin(19200);  // Start the serial port connected to the satellite modem
   Serial.println("Starting modem...");  // Begin satellite modem operation
-  //IridiumSerial.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // This is a low power application
+  
+  modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // This is a low power application
   err = modem.begin();
   err = modem.sendSBDText(msg.c_str());
-  if (err != ISBD_SUCCESS){
-    Serial.println("Failed..");
-  }else{
-    Serial.println("Success..");
-  } 
+  if (err != 0 && err != 13)// If first attemped failed try once more with extended timeout
+    {
+      err = modem.begin();
+      modem.adjustSendReceiveTimeout(500);
+      err = modem.sendSBDText(msg.c_str());
+    }  
+  //  if (err != ISBD_SUCCESS){
+  //    Serial.println("Failed..");
+  //  }else{
+  //    Serial.println("Success..");
+  //  } 
   digitalWrite(irid_pwr_pin, LOW);   //Drive iridium power pin LOW
-  String datastring = rtc.now().timestamp() + "," + msg;
-  Serial.println(datastring);  
   return 1;
   }
 
@@ -254,7 +259,7 @@ void setup() {
 
   // START SERIAL, WAIT 2 SECS
   Serial.begin(9600);
-  delay(2000); 
+  delay(5000); 
 
   // CHECK IF SD ELSE 1 BEEP
   while (!SD.begin(chipSelect)) {
@@ -343,21 +348,29 @@ void setup() {
     send_msg(msmt);
   }
   
-  // irid_temp_msg_test(); // TEST IRIDIUM FUNCTIONS
+//   irid_temp_msg_test(); // TEST IRIDIUM FUNCTIONS
 }
 
 void loop() {
 
-  Serial.begin(9600);
+  // Serial.begin(9600);
   DateTime sample_start_time = rtc.now();
   Serial.println(sample_start_time.timestamp());
   
-  int16_t sample_int_m = 1;
-  int16_t irid_sample_freq_m = 5;
-  int16_t irid_msg_freq_m = 10;
+  int16_t sample_int_m = 10;
+  int16_t irid_sample_freq_h = 1;
+  int16_t irid_msg_freq_h = 2;
 
   // ONLY SAMPLE ON 0 SECONDS
   if(sample_start_time.second() == 0) {
+
+    digitalWrite(led, HIGH);
+    delay(100);
+    digitalWrite(led, LOW);
+    delay(100);
+    digitalWrite(led, HIGH);
+    delay(200);
+    digitalWrite(led, LOW);
     
     // SAMPLE ON INTERVAL
     if(sample_start_time.minute() % sample_int_m == 0){
@@ -368,14 +381,14 @@ void loop() {
       write_to_csv(msmt+",");
       
       // WRITE TO IRID_TEMP ON HOUR
-      if(sample_start_time.minute() % irid_sample_freq_m == 0) {
+      if(sample_start_time.hour() % irid_sample_freq_h == 0) {
                 
         // WRITE TO IRID_TEMP
         Serial.println("irid_temp: " + msmt);
         write_to_irid_temp(msmt);
 
-        // SEND IRIDIUM IF IRID MODULUS == 0
-        if(sample_start_time.minute() % irid_msg_freq_m == 0) {
+        // SEND IRIDIUM IF IRID MODULUS == 0 & Minute == 0
+        if(sample_start_time.hour() % irid_msg_freq_h == 0 & sample_start_time.minute() == 0) {
         
           SD.begin(chipSelect);
           CSV_Parser cp("ddssss", true, ',');  
@@ -388,16 +401,31 @@ void loop() {
           send_msg(irid_msg);  
           remove_irid_temp();          
         }
+      
+      // SLEEP FOR ENTIRE INTERVAL AFTER MEASUREMENT (NO BLINKY)
+      //    DateTime sample_end_time = rtc.now();
+      //    int32_t delay_seconds = sample_start_time.unixtime() + (sample_int_m*60) - sample_end_time.unixtime();
+      //    Serial.println(delay_seconds - 1);
+      //    if(delay_seconds>0){
+      //      Serial.println("sleep");
+      //      uint32_t sleep_time = 1000 * (delay_seconds - 1); // delay - 1s
+      //      LowPower.sleep(sleep_time);
+      //      // delay(sleep_time);
       }
-
-    // SLEEP
-    DateTime sample_end_time = rtc.now();
-    int32_t delay_seconds = sample_start_time.unixtime() + (sample_int_m*60) - sample_end_time.unixtime();
-    Serial.println(delay_seconds - 1);
-    uint32_t sleep_time = 1000 * (delay_seconds - 1); // delay - 1s
-    LowPower.sleep(sleep_time);// 
-    // delay(sleep_time); 
     }
+    // SLEEP 1 MINUTE, WAKE ON SECOND, BLINK !!
+    DateTime sample_end_time = rtc.now();
+    DateTime sample_end_time_simple = DateTime(sample_end_time.year(),
+      sample_end_time.month(),
+      sample_end_time.day(),
+      sample_end_time.hour(),
+      sample_end_time.minute(),
+      0);
+    DateTime sample_end_time_simple_plus = sample_end_time_simple + TimeSpan(0,0,1,0);
+    int32_t delay_seconds = sample_end_time_simple_plus.unixtime() - sample_end_time.unixtime();
+    Serial.println(delay_seconds);
+    uint32_t sleep_time = 1000 * (delay_seconds - 1); // delay - 1s
+    LowPower.sleep(sleep_time);  
   }
   delay(1000);
 }
