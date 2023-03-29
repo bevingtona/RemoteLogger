@@ -353,13 +353,12 @@ void setup() {
 
 void loop() {
 
-  // Serial.begin(9600);
+  Serial.begin(9600);
   DateTime sample_start_time = rtc.now();
   Serial.println(sample_start_time.timestamp());
   
-  int16_t sample_int_m = 10;
-  int16_t irid_sample_freq_h = 1;
-  int16_t irid_msg_freq_h = 2;
+  int16_t sample_int_m = 5;
+  int16_t irid_msg_freq_h = 1;
 
   // ONLY SAMPLE ON 0 SECONDS
   if(sample_start_time.second() == 0) {
@@ -376,12 +375,12 @@ void loop() {
     if(sample_start_time.minute() % sample_int_m == 0){
       
       // TAKE MEASUREMENT
-      String msmt = take_measurement(sample_start_time.timestamp());//
+      String msmt = take_measurement(sample_start_time.timestamp());
       Serial.println("msmt: " + msmt);
       write_to_csv(msmt+",");
       
       // WRITE TO IRID_TEMP ON HOUR
-      if(sample_start_time.hour() % irid_sample_freq_h == 0) {
+      if(sample_start_time.hour() % 1 == 0) {
                 
         // WRITE TO IRID_TEMP
         Serial.println("irid_temp: " + msmt);
@@ -413,6 +412,7 @@ void loop() {
       //      // delay(sleep_time);
       }
     }
+    
     // SLEEP 1 MINUTE, WAKE ON SECOND, BLINK !!
     DateTime sample_end_time = rtc.now();
     DateTime sample_end_time_simple = DateTime(sample_end_time.year(),
@@ -424,8 +424,9 @@ void loop() {
     DateTime sample_end_time_simple_plus = sample_end_time_simple + TimeSpan(0,0,1,0);
     int32_t delay_seconds = sample_end_time_simple_plus.unixtime() - sample_end_time.unixtime();
     Serial.println(delay_seconds);
-    uint32_t sleep_time = 1000 * (delay_seconds - 1); // delay - 1s
-    LowPower.sleep(sleep_time);  
+    uint32_t sleep_time = 1000 * (delay_seconds - 3); // delay - 1s
+    LowPower.sleep(sleep_time);
+    // delay(sleep_time);  
   }
   delay(1000);
 }
