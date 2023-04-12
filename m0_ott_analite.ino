@@ -1,8 +1,15 @@
-// READ PARAM
-// sample_freq_m,irid_freq_h,onstart_irid
-// 10,12,T
 // LOG FILE
-// COMPILE IRID MSG
+
+/* 
+  A - TEMP
+  B - LEVEL
+  C - EC
+  D - NTU
+  E - 
+  F - 
+  G - 
+*/  
+
 
 /*Include the libraries we need*/
 #include "RTClib.h" //Needed for communication with Real Time Clock
@@ -28,19 +35,10 @@ const byte vbatPin = 9;
 
 /*Define global vars */
 String my_header = "datetime,ntu,water_level_m,water_temp_c,ott_status,ott_rh,ott_dew,ott_deg,batt_v";
-char **filename; //Name of log file
-char **start_time; //Time at which to begin logging
-String filestr; //Filename as string
-int16_t *sample_intvl; //Sample interval in minutes
-int16_t *irid_freq; //User provided transmission interval for Iridium modem in hours
-float *turb_slope; //The linear slope parameter for converting 12-bit analog value to NTU, i.e., from calibration
-float m;
-float b;
-float *turb_intercept; //The intercept parameter for converting 12-bit analog to NTU, i.e., form calibration
+int16_t *sample_freq_m; //Sample interval in minutes
+int16_t *irid_freq_h; //User provided transmission interval for Iridium modem in hours
+char **onstart_irid; //Name of log file
 int wiper_cnt = 0;
-uint32_t irid_freq_hrs;
-uint32_t sleep_time;//Logger sleep time in milliseconds
-DateTime transmit_time;//Datetime varible for keeping IRIDIUM transmit time
 DateTime present_time;//Var for keeping the current time
 int err; //IRIDIUM status var
 String myCommand   = "";//SDI-12 command var
@@ -58,6 +56,35 @@ File dataFile; // Setup a log file instance
 IridiumSBD modem(IridiumSerial); // Declare the IridiumSBD object
 SDI12 mySDI12(dataPin);// Define the SDI-12 bus
 QuickStats stats;//Instance of QuickStats
+
+float read_params(){
+    //Set paramters for parsing the parameter file PARAM.txt
+  CSV_Parser cp("dds", true, ',');
+
+  /*Read the parameter file 'PARAM.txt', blink (1-sec) if fail to read*/
+  while (!cp.readSDfile("/PARAM.txt"))
+  {
+    digitalWrite(led, HIGH);
+    delay(1000);
+    digitalWrite(led, LOW);
+    delay(1000);
+  }
+
+  
+  sample_freq_m = (int16_t*)cp["sample_freq_m"];
+  Serial.println(sample_freq_m[0]);
+  irid_freq_h = (int16_t*)cp["irid_freq_h"];
+  Serial.println(irid_freq_h[0]);
+  onstart_irid = (char**)cp["onstart_irid"];
+  Serial.println(onstart_irid[0]);
+  
+  return 1;
+}
+
+float read_vbat() { 
+  pinMode(vbatPin, INPUT); //Set VBAT pin as INPUT
+  return (analogRead(vbatPin)*2*3.3)/1024;
+}
 
 String sample_ott_M(){
 
@@ -257,32 +284,53 @@ float send_msg(String msg, float timeout_s, float retry_n){
   IridiumSerial.begin(19200);  // Start the serial port connected to the satellite modem
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // This is a low power application
   err = modem.begin();
-  write_to_csv("datetime,comment", rtc.now().timestamp()+",Begin "+String(err), "/log.csv");
+  // write_to_csv("datetime,comment", rtc.now().timestamp()+",Begin "+String(err), "/log.csv");
 
   modem.adjustSendReceiveTimeout(timeout_s);
   err = modem.sendSBDText(msg.c_str());  
-  write_to_csv("datetime,comment", rtc.now().timestamp()+",Message "+String(err), "/log.csv");
+  // write_to_csv("datetime,comment", rtc.now().timestamp()+",Message "+String(err), "/log.csv");
 
   int signalQuality = -1;
   err = modem.getSignalQuality(signalQuality);
-  write_to_csv("datetime,comment", rtc.now().timestamp()+",Quality "+String(err), "/log.csv");
+  // write_to_csv("datetime,comment", rtc.now().timestamp()+",Quality "+String(err), "/log.csv");
 
   if(retry_n > 0){
   for (int16_t i = 0; i < retry_n; i++) {
     if(err != ISBD_SUCCESS)//err != 0 && err != 13)// If first attemped failed try once more with extended timeout
       {
         delay(1000);        
-        write_to_csv("datetime,comment", rtc.now().timestamp()+",Retry "+String(i), "/log.csv");
+        // write_to_csv("datetime,comment", rtc.now().timestamp()+",Retry "+String(i), "/log.csv");
         modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // This is a low power application
         err = modem.begin(); 
-        write_to_csv("datetime,comment", rtc.now().timestamp()+",Begin "+String(err), "/log.csv");
+        // write_to_csv("datetime,comment", rtc.now().timestamp()+",Begin "+String(err), "/log.csv");
         err = modem.sendSBDText(msg.c_str());
-        write_to_csv("datetime,comment", rtc.now().timestamp()+",Message "+String(err), "/log.csv");
+        // write_to_csv("datetime,comment", rtc.now().timestamp()+",Message "+String(err), "/log.csv");
       }
     }
   }  
   digitalWrite(IridPwrPin, LOW);   //Drive iridium power pin LOW
   return 1;
+}
+
+String prep_msg(){
+  
+  SD.begin(chipSelect);
+  CSV_Parser cp("sffffffffs", true, ',');  // Set paramters for parsing the log file
+  cp.readSDfile("/HOURLY.csv");
+  int num_rows = cp.getRowsCount();  //Get # of rows
+    
+  char **out_datetimes = (char **)cp["datetime"];
+  float *out_water_level_m = (float *)cp["water_level_m"];
+  float *out_water_temp_c = (float *)cp["water_temp_c"];
+  float *out_ntu = (float *)cp["ntu"];
+  float *out_batt_v = (float *)cp["batt_v"];
+  
+  String datastring_msg = "ABD:" + String(out_datetimes[0]).substring(2, 4) + String(out_datetimes[0]).substring(5, 7) + String(out_datetimes[0]).substring(8, 10) + String(out_datetimes[0]).substring(11, 13) + ":" + String(round(out_batt_v[num_rows-1] * 10)) + ":";
+  
+  for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
+    datastring_msg = datastring_msg + String(round(out_water_level_m[i])) + ',' + String(round(out_water_temp_c[i]*10)) + ',' + String(round(out_ntu[i])) + ':';              
+    }
+  return datastring_msg;
 }
 
 void setup(void){
@@ -313,12 +361,9 @@ void setup(void){
   // CHECK SD CARD
   while (!SD.begin(chipSelect)) {blinky(3,200,200,2000);}
 
-  //Set paramters for parsing the log file
-  CSV_Parser cp("sddffs", true, ',');
-
   // CHECK PARAM.txt
-  while (!cp.readSDfile("/PARAM.txt")){blinky(4,200,200,2000);}
-
+  read_params();
+  
   // SAMPLE ON STARTUP - SET RELAY
   digitalWrite(SensorSetPin, HIGH); delay(30);
   digitalWrite(SensorSetPin, LOW);
@@ -343,8 +388,10 @@ void setup(void){
   digitalWrite(SensorUnsetPin, LOW);
 
   // SAMPLE ON STARTUP - SEND MESSAGE
-  // send_msg("startup: "+ datastring, 120, 1);
-  
+  if(onstart_irid[0] == "T"){send_msg("startup: "+ datastring, 120, 1);}
+
+  SD.remove("/HOURLY.csv");  
+
 }
 
 void loop(void){
@@ -352,13 +399,14 @@ void loop(void){
   // WAKE UP, WHAT TIME? 
   present_time = rtc.now();
   Serial.println(rtc.now().timestamp());
-    
+
   // BLINK IF INTERVAL OF 10s
   if(present_time.second() % 10 == 0){
     blinky(1,20,200,200);
+    read_params();
 
     // SAMPLE IF AT INTERVAL AND ON 0s
-    if(present_time.minute() % 1 == 0 & present_time.second() == 0){    
+    if(present_time.minute() % sample_freq_m[0] == 0 & present_time.second() == 0){    
         
       // SAMPLE - SET RELAY 
       digitalWrite(SensorSetPin, HIGH); delay(30);
@@ -381,19 +429,18 @@ void loop(void){
         write_to_csv(my_header, datastring, "/HOURLY.csv");
           
         // SEND MESSAGE IF ON IRIDIUM INTERVAL
-        if(present_time.hour() % 1 == 0){
-          send_msg(datastring, 300, 2); // 300 secs = 5 min, retry = 2
-          
+        if(present_time.hour() % irid_freq_h[0] == 0){
+          datastring = prep_msg();
+          send_msg(datastring, 300, 2); 
+          SD.remove("/HOURLY.csv");  
         }
       }
     }
-      
-      // Sleep until 10 secs interval 0,10,20,...
+    // Sleep until 10 secs interval 0,10,20,...
     DateTime sample_end = rtc.now();
     uint32_t sleep_time = (10-(sample_end.second()%10))*1000.0;
     Serial.println(sleep_time);
-    LowPower.sleep(sleep_time);
-  }
-  
+    LowPower.sleep(sleep_time); 
+  }  
   delay(300);
 }
