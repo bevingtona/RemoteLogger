@@ -353,45 +353,47 @@ void loop(void){
   present_time = rtc.now();
   Serial.println(rtc.now().timestamp());
     
+  // BLINK IF INTERVAL OF 10s
   if(present_time.second() % 10 == 0){
-    
     blinky(1,20,200,200);
 
-  // WAIT FOR ZERO SECONDS
-  if(present_time.second() == 0){
-    
-    // WAIT FOR SAMPLE INTERVAL 
-    if(present_time.minute() % 2 == 0){    
-      
-      // TURN ON SENSORS  
+    // SAMPLE IF AT INTERVAL AND ON 0s
+    if(present_time.minute() % 1 == 0 & present_time.second() == 0){    
+        
+      // SAMPLE - SET RELAY 
       digitalWrite(SensorSetPin, HIGH); delay(30);
       digitalWrite(SensorSetPin, LOW);
       delay(1000); 
 
+      // SAMPLE - SAMPLE 
       String datastring = present_time.timestamp()+","+String(sample_analite_195())+","+sample_ott_M()+","+sample_ott_V()+","+sample_batt_v();
       Serial.println(datastring);
 
+      // SAMPLE - WRITE TO CSV 
       write_to_csv(my_header, datastring, "/DATA.csv");
-    
+      
+      // SAMPLE - UNSET RELAY
       digitalWrite(SensorUnsetPin, HIGH); delay(30);
       digitalWrite(SensorUnsetPin, LOW);
 
+      // SAVE TO HOURLY IF ON THE HOUR
       if(present_time.minute() == 0){
         write_to_csv(my_header, datastring, "/HOURLY.csv");
-        
+          
+        // SEND MESSAGE IF ON IRIDIUM INTERVAL
         if(present_time.hour() % 1 == 0){
           send_msg(datastring, 300, 2); // 300 secs = 5 min, retry = 2
-
+          
         }
       }
     }
-  }  
-
-  // Sleep until 10 secs interval 0,10,20,...
-  DateTime sample_end = rtc.now();
-  float sleep = 9.5-(sample_end.second()%10);
-  Serial.println(sleep);
-  delay(sleep*1000);
+      
+      // Sleep until 10 secs interval 0,10,20,...
+    DateTime sample_end = rtc.now();
+    uint32_t sleep_time = (10-(sample_end.second()%10))*1000.0;
+    Serial.println(sleep_time);
+    LowPower.sleep(sleep_time);
   }
+  
   delay(300);
 }
