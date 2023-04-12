@@ -1,3 +1,9 @@
+// READ PARAM
+// sample_freq_m,irid_freq_h,onstart_irid
+// 10,12,T
+// LOG FILE
+// COMPILE IRID MSG
+
 /*Include the libraries we need*/
 #include "RTClib.h" //Needed for communication with Real Time Clock
 #include <SPI.h>//Needed for working with SD card
@@ -54,10 +60,6 @@ SDI12 mySDI12(dataPin);// Define the SDI-12 bus
 QuickStats stats;//Instance of QuickStats
 
 String sample_ott_M(){
-  /*Switch power to HYDR21 via latching relay*/
-  // digitalWrite(SensorSetPin, HIGH); delay(30);
-  // digitalWrite(SensorSetPin, LOW);
-  // delay(1000); //Give HYDROS21 sensor time to settle 
 
   myCommand = String(SENSOR_ADDRESS) + "M!";// first command to take a measurement
 
@@ -113,22 +115,10 @@ String sample_ott_M(){
   if (sdiResponse.length() > 1)
     mySDI12.clearBuffer();
 
-  //Assemble datastring
-  // String hydrostring = present_time.timestamp() + ",";
-  String hydrostring = sdiResponse; //hydrostring + 
-
-  /*Switch power off to HYDROS21 via latching relay*/
-  // digitalWrite(SensorUnsetPin, HIGH); delay(30);
-  // digitalWrite(SensorUnsetPin, LOW);
-
-  return hydrostring;
+  return sdiResponse;
 }
 
 String sample_ott_V(){
-  /*Switch power to HYDR21 via latching relay*/
-  // digitalWrite(SensorSetPin, HIGH); delay(30);
-  // digitalWrite(SensorSetPin, LOW);
-  // delay(1000); //Give HYDROS21 sensor time to settle 
 
   myCommand = String(SENSOR_ADDRESS) + "V!";// first command to take a measurement
 
@@ -185,59 +175,37 @@ String sample_ott_V(){
   if (sdiResponse.length() > 1)
     mySDI12.clearBuffer();
 
-  //Assemble datastring
-  // String hydrostring = present_time.timestamp() + ",";
-  String hydrostring = sdiResponse; //hydrostring + 
-
-  /*Switch power off to HYDROS21 via latching relay*/
-  // digitalWrite(SensorUnsetPin, HIGH); delay(30);
-  // digitalWrite(SensorUnsetPin, LOW);
-
-  return hydrostring;
+  return sdiResponse;
 }
 
 int sample_analite_195(){
 
-  // TURN ON SENSOR
-  // digitalWrite(SensorSetPin, HIGH); delay(20);    
-  // digitalWrite(SensorSetPin, LOW); delay(20);    
-  delay(1000);
+  float values[100]; //Array for storing sampled distances
 
-  float values[100];//Array for storing sampled distances
-
-  //Probe will atomatically wipe after X power cycles
-  if (wiper_cnt >= 5)
-  {
+  if (wiper_cnt >= 5)  {  // Probe will wipe after 6 power cycles (1 hr at 10 min interval)
     digitalWrite(WiperSetPin, HIGH); delay(20);    
-    digitalWrite(WiperSetPin, LOW); delay(20);    
-    delay(100);
+    digitalWrite(WiperSetPin, LOW); delay(20); delay(100); // >50 ms burst of power activates the wiper's full rotation
     digitalWrite(WiperUnsetPin, HIGH); delay(20);    
     digitalWrite(WiperUnsetPin, LOW); delay(20);    
-    Serial.println("WIPER ACTIVATED");
-    wiper_cnt = 0;
-    delay(10000);
+    wiper_cnt = 0; // Reset wiper count to zero
+    delay(10000); // wait for full rotation (about 6 seconds)
   } else {
     wiper_cnt++;
-    digitalWrite(WiperUnsetPin, HIGH); delay(20);    
+    digitalWrite(WiperUnsetPin, HIGH); delay(20); // Unnecessary, but good to double check it's off 
     digitalWrite(WiperUnsetPin, LOW); delay(20);    
   }
-
   for(int i = 0; i<100; i++)
   {
-    //Read analog value from probe
-    values[i]= (float) analogRead(TurbAlog);
+    values[i]= (float) analogRead(TurbAlog); // Read analog value from probe
     delay(5);
   }
 
-  float med_turb_alog = stats.median(values, 100);//Compute median 12-bit analog val
+  float med_turb_alog = stats.median(values, 100); // Compute median 12-bit analog val
 
   //Convert analog value (0-4096) to NTU from provided linear calibration coefficients
-  float ntu = med_turb_alog; //(m * med_turb_alog) + b;
+  float ntu_analog = med_turb_alog; //(m * med_turb_alog) + b;
 
-  int ntu_int = round(ntu);
-
-  // digitalWrite(SensorUnsetPin, HIGH); delay(20);    
-  // digitalWrite(SensorUnsetPin, LOW); delay(20); 
+  int ntu_int = round(ntu_analog);
 
   return ntu_int;
 }
@@ -289,18 +257,27 @@ float send_msg(String msg, float timeout_s, float retry_n){
   IridiumSerial.begin(19200);  // Start the serial port connected to the satellite modem
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // This is a low power application
   err = modem.begin();
+  write_to_csv("datetime,comment", rtc.now().timestamp()+",Begin "+String(err), "/log.csv");
 
   modem.adjustSendReceiveTimeout(timeout_s);
   err = modem.sendSBDText(msg.c_str());  
-  
+  write_to_csv("datetime,comment", rtc.now().timestamp()+",Message "+String(err), "/log.csv");
+
+  int signalQuality = -1;
+  err = modem.getSignalQuality(signalQuality);
+  write_to_csv("datetime,comment", rtc.now().timestamp()+",Quality "+String(err), "/log.csv");
+
   if(retry_n > 0){
   for (int16_t i = 0; i < retry_n; i++) {
     if(err != ISBD_SUCCESS)//err != 0 && err != 13)// If first attemped failed try once more with extended timeout
       {
         delay(1000);        
+        write_to_csv("datetime,comment", rtc.now().timestamp()+",Retry "+String(i), "/log.csv");
         modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // This is a low power application
         err = modem.begin(); 
+        write_to_csv("datetime,comment", rtc.now().timestamp()+",Begin "+String(err), "/log.csv");
         err = modem.sendSBDText(msg.c_str());
+        write_to_csv("datetime,comment", rtc.now().timestamp()+",Message "+String(err), "/log.csv");
       }
     }
   }  
@@ -327,6 +304,7 @@ void setup(void){
   // SET IRIDIUM 
   pinMode(IridPwrPin, OUTPUT);// delay(30); digitalWrite(IridPwrPin, LOW);
 
+  // START SDI-12 PROTOCOL
   mySDI12.begin();
 
   // CHECK RTC
@@ -341,32 +319,43 @@ void setup(void){
   // CHECK PARAM.txt
   while (!cp.readSDfile("/PARAM.txt")){blinky(4,200,200,2000);}
 
-  // // SAMPLE ON STARTUP
-  // digitalWrite(SensorSetPin, HIGH); delay(30);
-  // digitalWrite(SensorSetPin, LOW);
-  // delay(1000); 
-  // String datastring = rtc.now().timestamp()+","+String(sample_analite_195())+","+sample_ott_M()+","+sample_ott_V()+","+sample_batt_v();
-  // Serial.println(datastring);  
-  // write_to_csv(my_header, datastring, "/DATA.csv");
-  // digitalWrite(SensorUnsetPin, HIGH); delay(30);
-  // digitalWrite(SensorUnsetPin, LOW);
+  // SAMPLE ON STARTUP - SET RELAY
+  digitalWrite(SensorSetPin, HIGH); delay(30);
+  digitalWrite(SensorSetPin, LOW);
+  delay(1000); 
 
-  // // SEND MSG ON STARTUP
-  // send_msg(datastring, 300, 1);
+  // SAMPLE ON STARTUP - ACTIVATE WIPER
+  digitalWrite(WiperSetPin, HIGH); delay(20);    
+  digitalWrite(WiperSetPin, LOW); delay(20); delay(100); // >50 ms burst of power activates the wiper's full rotation
+  digitalWrite(WiperUnsetPin, HIGH); delay(20);    
+  digitalWrite(WiperUnsetPin, LOW); delay(20);    
+  delay(10000); // wait for full rotation (about 6 seconds)
+
+  // SAMPLE ON STARTUP - SAMPLE
+  String datastring = rtc.now().timestamp()+","+String(sample_analite_195())+","+sample_ott_M()+","+sample_ott_V()+","+sample_batt_v();
+  Serial.println(datastring);  
   
+  // SAMPLE ON STARTUP - WRITE
+  write_to_csv(my_header, datastring, "/DATA.csv");
 
+  // SAMPLE ON STARTUP - UNSET RELAY
+  digitalWrite(SensorUnsetPin, HIGH); delay(30);
+  digitalWrite(SensorUnsetPin, LOW);
+
+  // SAMPLE ON STARTUP - SEND MESSAGE
+  // send_msg("startup: "+ datastring, 120, 1);
+  
 }
 
-/*
-   Main function, sample HYDROS21 and sample interval, log to SD, and transmit hourly averages over IRIDIUM at midnight on the RTC
-*/
-void loop(void)
-{
+void loop(void){
 
   // WAKE UP, WHAT TIME? 
   present_time = rtc.now();
   Serial.println(rtc.now().timestamp());
-  blinky(1,200,200,200);
+    
+  if(present_time.second() % 10 == 0){
+    
+    blinky(1,20,200,200);
 
   // WAIT FOR ZERO SECONDS
   if(present_time.second() == 0){
@@ -389,20 +378,20 @@ void loop(void)
 
       if(present_time.minute() == 0){
         write_to_csv(my_header, datastring, "/HOURLY.csv");
+        
         if(present_time.hour() % 1 == 0){
-          send_msg(datastring, 300, 2);
+          send_msg(datastring, 300, 2); // 300 secs = 5 min, retry = 2
+
         }
       }
     }
-  
-  DateTime sample_end = rtc.now();
-  Serial.print(sample_end.timestamp());
-  DateTime sample_end_next = DateTime(sample_end.year(),sample_end.month(),sample_end.day(),sample_end.hour(),sample_end.minute()+1,0);
-  Serial.println(sample_end_next.timestamp());
-  float diff = sample_end_next.unixtime() - sample_end.unixtime() - 1;
-  Serial.println(diff);
-  delay(diff*1000);
-  }
-  delay(900);
+  }  
 
+  // Sleep until 10 secs interval 0,10,20,...
+  DateTime sample_end = rtc.now();
+  float sleep = 9.5-(sample_end.second()%10);
+  Serial.println(sleep);
+  delay(sleep*1000);
+  }
+  delay(300);
 }
