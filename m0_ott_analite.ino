@@ -1,15 +1,20 @@
 // LOG FILE
+// MESSAGE AS BYTES
+// READ METRICS CODE FROM SD
+/* A - TEMP, B - LEVEL, C - EC, D - NTU, E - SNOW DEPTH, F - AIR TEMP, G - RH */  
 
-/* 
-  A - TEMP
-  B - LEVEL
-  C - EC
-  D - NTU
-  E - 
-  F - 
-  G - 
-*/  
-
+// #define ISBD_SUCCESS             0
+// #define ISBD_ALREADY_AWAKE       1
+// #define ISBD_SERIAL_FAILURE      2
+// #define ISBD_PROTOCOL_ERROR      3
+// #define ISBD_CANCELLED           4
+// #define ISBD_NO_MODEM_DETECTED   5
+// #define ISBD_SBDIX_FATAL_ERROR   6
+// #define ISBD_SENDRECEIVE_TIMEOUT 7
+// #define ISBD_RX_OVERFLOW         8
+// #define ISBD_REENTRANT           9
+// #define ISBD_IS_ASLEEP           10
+// #define ISBD_NO_SLEEP_PIN        11
 
 /*Include the libraries we need*/
 #include "RTClib.h" //Needed for communication with Real Time Clock
@@ -35,14 +40,17 @@ const byte vbatPin = 9;
 
 /*Define global vars */
 String my_header = "datetime,ntu,water_level_m,water_temp_c,ott_status,ott_rh,ott_dew,ott_deg,batt_v";
-int16_t *sample_freq_m; //Sample interval in minutes
-int16_t *irid_freq_h; //User provided transmission interval for Iridium modem in hours
-char **onstart_irid; //Name of log file
+
+int16_t *sample_freq_m; //
+uint32_t sample_freq_m_32;// 
+int16_t *irid_freq_h; //
+uint32_t irid_freq_h_32;//
+char **onstart_irid;//
 int wiper_cnt = 0;
 DateTime present_time;//Var for keeping the current time
 int err; //IRIDIUM status var
-String myCommand   = "";//SDI-12 command var
-String sdiResponse = "";//SDI-12 responce var
+String myCommand   = ""; //SDI-12 command var
+String sdiResponse = ""; //SDI-12 responce var
 
 /*Define Iridium seriel communication COM1*/
 #define IridiumSerial Serial1
@@ -59,31 +67,21 @@ QuickStats stats;//Instance of QuickStats
 
 float read_params(){
     //Set paramters for parsing the parameter file PARAM.txt
-  CSV_Parser cp("dds", true, ',');
+  CSV_Parser cp("sdds", true, ',');
 
   /*Read the parameter file 'PARAM.txt', blink (1-sec) if fail to read*/
-  while (!cp.readSDfile("/PARAM.txt"))
-  {
-    digitalWrite(led, HIGH);
-    delay(1000);
-    digitalWrite(led, LOW);
-    delay(1000);
-  }
+  while (!cp.readSDfile("/PARAM.txt"))  {blinky(1,1000,1000,1000);}
 
-  
   sample_freq_m = (int16_t*)cp["sample_freq_m"];
-  Serial.println(sample_freq_m[0]);
+  sample_freq_m_32 = sample_freq_m[0];
+  Serial.println(sample_freq_m_32);
   irid_freq_h = (int16_t*)cp["irid_freq_h"];
-  Serial.println(irid_freq_h[0]);
+  irid_freq_h_32 = irid_freq_h[0];
+  Serial.println(irid_freq_h_32);
   onstart_irid = (char**)cp["onstart_irid"];
   Serial.println(onstart_irid[0]);
   
   return 1;
-}
-
-float read_vbat() { 
-  pinMode(vbatPin, INPUT); //Set VBAT pin as INPUT
-  return (analogRead(vbatPin)*2*3.3)/1024;
 }
 
 String sample_ott_M(){
@@ -260,7 +258,7 @@ float write_to_csv(String header, String datastring_for_csv, String outname) {
   {
     dataFile = SD.open(outname, FILE_WRITE);  //Open file under filestr name from parameter file
     if (dataFile) {
-      dataFile.println(header+",comment");
+      dataFile.println(header);
       dataFile.println(datastring_for_csv);
     }
     dataFile.close();  //Close the dataFile
@@ -274,6 +272,33 @@ float write_to_csv(String header, String datastring_for_csv, String outname) {
   return 1;
 }
 
+String prep_msg(){
+  
+  SD.begin(chipSelect);
+  CSV_Parser cp("sffffffffs", true, ',');  // Set paramters for parsing the log file
+  cp.readSDfile("/HOURLY.csv");
+  int num_rows = cp.getRowsCount();  //Get # of rows
+
+  String my_header = "datetime,ntu,water_level_m,water_temp_c,ott_status,ott_rh,ott_dew,ott_deg,batt_v";
+
+  char **out_datetimes = (char **)cp["datetime"];
+  float *out_ntu = (float *)cp["ntu"];
+  float *out_water_level_m = (float *)cp["water_level_m"];
+  float *out_water_temp_c = (float *)cp["water_temp_c"];
+  float *out_ott_status = (float *)cp["ott_status"];
+  float *out_ott_rh = (float *)cp["ott_rh"];
+  float *out_ott_dew = (float *)cp["ott_dew"];
+  float *out_ott_deg = (float *)cp["ott_deg"];
+  float *out_batt_v = (float *)cp["batt_v"];
+  
+  String datastring_msg = "ABD:" + String(out_datetimes[0]).substring(2, 4) + String(out_datetimes[0]).substring(5, 7) + String(out_datetimes[0]).substring(8, 10) + String(out_datetimes[0]).substring(11, 13) + ":" + String(round(out_batt_v[num_rows-1] * 100)) + ":";
+  
+  for (int i = 0; i <= num_rows; i++) {  //For each observation in the IRID.csv
+    datastring_msg = datastring_msg + String(round(out_water_level_m[i]*1000)) + ',' + String(round(out_water_temp_c[i]*10)) + ',' + String(round(out_ntu[i])) + ':';              
+    }
+  return datastring_msg;
+}
+
 float send_msg(String msg, float timeout_s, float retry_n){
 
   pinMode(IridPwrPin, OUTPUT);     //Set iridium power pin as OUTPUT
@@ -284,53 +309,26 @@ float send_msg(String msg, float timeout_s, float retry_n){
   IridiumSerial.begin(19200);  // Start the serial port connected to the satellite modem
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // This is a low power application
   err = modem.begin();
-  // write_to_csv("datetime,comment", rtc.now().timestamp()+",Begin "+String(err), "/log.csv");
 
   modem.adjustSendReceiveTimeout(timeout_s);
   err = modem.sendSBDText(msg.c_str());  
-  // write_to_csv("datetime,comment", rtc.now().timestamp()+",Message "+String(err), "/log.csv");
 
   int signalQuality = -1;
   err = modem.getSignalQuality(signalQuality);
-  // write_to_csv("datetime,comment", rtc.now().timestamp()+",Quality "+String(err), "/log.csv");
 
   if(retry_n > 0){
   for (int16_t i = 0; i < retry_n; i++) {
     if(err != ISBD_SUCCESS)//err != 0 && err != 13)// If first attemped failed try once more with extended timeout
       {
         delay(1000);        
-        // write_to_csv("datetime,comment", rtc.now().timestamp()+",Retry "+String(i), "/log.csv");
         modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // This is a low power application
         err = modem.begin(); 
-        // write_to_csv("datetime,comment", rtc.now().timestamp()+",Begin "+String(err), "/log.csv");
         err = modem.sendSBDText(msg.c_str());
-        // write_to_csv("datetime,comment", rtc.now().timestamp()+",Message "+String(err), "/log.csv");
       }
     }
   }  
   digitalWrite(IridPwrPin, LOW);   //Drive iridium power pin LOW
   return 1;
-}
-
-String prep_msg(){
-  
-  SD.begin(chipSelect);
-  CSV_Parser cp("sffffffffs", true, ',');  // Set paramters for parsing the log file
-  cp.readSDfile("/HOURLY.csv");
-  int num_rows = cp.getRowsCount();  //Get # of rows
-    
-  char **out_datetimes = (char **)cp["datetime"];
-  float *out_water_level_m = (float *)cp["water_level_m"];
-  float *out_water_temp_c = (float *)cp["water_temp_c"];
-  float *out_ntu = (float *)cp["ntu"];
-  float *out_batt_v = (float *)cp["batt_v"];
-  
-  String datastring_msg = "ABD:" + String(out_datetimes[0]).substring(2, 4) + String(out_datetimes[0]).substring(5, 7) + String(out_datetimes[0]).substring(8, 10) + String(out_datetimes[0]).substring(11, 13) + ":" + String(round(out_batt_v[num_rows-1] * 10)) + ":";
-  
-  for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
-    datastring_msg = datastring_msg + String(round(out_water_level_m[i])) + ',' + String(round(out_water_temp_c[i]*10)) + ',' + String(round(out_ntu[i])) + ':';              
-    }
-  return datastring_msg;
 }
 
 void setup(void){
@@ -392,6 +390,14 @@ void setup(void){
 
   SD.remove("/HOURLY.csv");  
 
+  // TEST IRID MSG FORMAT
+  // write_to_csv(my_header, datastring, "/HOURLY.csv");
+  // write_to_csv(my_header, datastring, "/HOURLY.csv");
+  // write_to_csv(my_header, datastring, "/HOURLY.csv");
+  // write_to_csv(my_header, datastring, "/HOURLY.csv");
+  // write_to_csv(my_header, datastring, "/HOURLY.csv");
+  // datastring = prep_msg();
+  // Serial.println(datastring);
 }
 
 void loop(void){
@@ -403,10 +409,9 @@ void loop(void){
   // BLINK IF INTERVAL OF 10s
   if(present_time.second() % 10 == 0){
     blinky(1,20,200,200);
-    read_params();
 
     // SAMPLE IF AT INTERVAL AND ON 0s
-    if(present_time.minute() % sample_freq_m[0] == 0 & present_time.second() == 0){    
+    if(present_time.minute() % sample_freq_m_32 == 0 & present_time.second() == 0){    
         
       // SAMPLE - SET RELAY 
       digitalWrite(SensorSetPin, HIGH); delay(30);
@@ -429,18 +434,22 @@ void loop(void){
         write_to_csv(my_header, datastring, "/HOURLY.csv");
           
         // SEND MESSAGE IF ON IRIDIUM INTERVAL
-        if(present_time.hour() % irid_freq_h[0] == 0){
+        if(present_time.hour() % irid_freq_h_32 == 0){
           datastring = prep_msg();
           send_msg(datastring, 300, 2); 
-          SD.remove("/HOURLY.csv");  
+          SD.remove("/HOURLY.csv");
+           
         }
       }
     }
+    
     // Sleep until 10 secs interval 0,10,20,...
     DateTime sample_end = rtc.now();
-    uint32_t sleep_time = (10-(sample_end.second()%10))*1000.0;
+    uint32_t sleep_time = ((10-(sample_end.second()%10))*1000.0)-500;
     Serial.println(sleep_time);
+    // delay(sleep_time);
     LowPower.sleep(sleep_time); 
+    
   }  
   delay(300);
 }
