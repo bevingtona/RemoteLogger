@@ -275,11 +275,9 @@ float write_to_csv(String header, String datastring_for_csv, String outname) {
 String prep_msg(){
   
   SD.begin(chipSelect);
-  CSV_Parser cp("sffffffffs", true, ',');  // Set paramters for parsing the log file
+  CSV_Parser cp("sffffffff", true, ',');  // Set paramters for parsing the log file
   cp.readSDfile("/HOURLY.csv");
   int num_rows = cp.getRowsCount();  //Get # of rows
-
-  String my_header = "datetime,ntu,water_level_m,water_temp_c,ott_status,ott_rh,ott_dew,ott_deg,batt_v";
 
   char **out_datetimes = (char **)cp["datetime"];
   float *out_ntu = (float *)cp["ntu"];
@@ -293,7 +291,7 @@ String prep_msg(){
   
   String datastring_msg = "ABD:" + String(out_datetimes[0]).substring(2, 4) + String(out_datetimes[0]).substring(5, 7) + String(out_datetimes[0]).substring(8, 10) + String(out_datetimes[0]).substring(11, 13) + ":" + String(round(out_batt_v[num_rows-1] * 100)) + ":";
   
-  for (int i = 0; i <= num_rows; i++) {  //For each observation in the IRID.csv
+  for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
     datastring_msg = datastring_msg + String(round(out_water_level_m[i]*1000)) + ',' + String(round(out_water_temp_c[i]*10)) + ',' + String(round(out_ntu[i])) + ':';              
     }
   return datastring_msg;
