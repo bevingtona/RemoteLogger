@@ -33,9 +33,6 @@ const byte IridPwrPin = 11; // Pwr pin to Iridium modem // THIS IS ALSO THE PIN 
 const byte SensorSetPin = 5; //Pwr set pin to HYDROS21
 const byte SensorUnsetPin = 6; //Pwr unset pin to HYDROS21
 const byte dataPin = 12; // The pin of the SDI-12 data bus
-// const byte WiperSetPin = 10; // Pin to set pwr relay to Analite 195
-// const byte WiperUnsetPin = 11; // Pin to unset pwr relay to Analite 195
-// const byte TurbAlog = A1; // Pin for reading analog outout from voltage divder (R1=1000 Ohm, R2=5000 Ohm) conncted to Analite 195
 const byte vbatPin = 9;
 
 /*Define global vars */
@@ -66,7 +63,7 @@ QuickStats stats;//Instance of QuickStats
 
 float read_params(){
     //Set paramters for parsing the parameter file PARAM.txt
-  CSV_Parser cp("sdds", true, ',');
+  CSV_Parser cp("dds", true, ',');
 
   /*Read the parameter file 'PARAM.txt', blink (1-sec) if fail to read*/
   while (!cp.readSDfile("/PARAM.txt"))  {blinky(1,1000,1000,1000);}
@@ -191,8 +188,8 @@ String prep_msg(){
   float *out_water_temp_c = (float *)cp["water_temp_c"];
   float *out_water_ec_dcm = (float *)cp["water_ec_dcm"];
   float *out_batt_v = (float *)cp["batt_v"];
-  
-  String datastring_msg = "ABD:" + String(out_datetimes[0]).substring(2, 4) + String(out_datetimes[0]).substring(5, 7) + String(out_datetimes[0]).substring(8, 10) + String(out_datetimes[0]).substring(11, 13) + ":" + String(round(out_batt_v[num_rows-1] * 100)) + ":";
+  read_params();
+  String datastring_msg = "ABC:" + String(out_datetimes[0]).substring(2, 4) + String(out_datetimes[0]).substring(5, 7) + String(out_datetimes[0]).substring(8, 10) + String(out_datetimes[0]).substring(11, 13) + ":" + String(round(out_batt_v[num_rows-1] * 100)) + ":";
   
   for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
     datastring_msg = datastring_msg + String(round(out_water_level_mm[i])) + ',' + String(round(out_water_temp_c[i]*10)) + ',' + String(round(out_water_ec_dcm[i])) + ':';              
@@ -267,13 +264,6 @@ void setup(void){
   digitalWrite(SensorSetPin, LOW);
   delay(1000); 
 
-  // SAMPLE ON STARTUP - ACTIVATE WIPER
-  // digitalWrite(WiperSetPin, HIGH); delay(20);    
-  // digitalWrite(WiperSetPin, LOW); delay(20); delay(100); // >50 ms burst of power activates the wiper's full rotation
-  // digitalWrite(WiperUnsetPin, HIGH); delay(20);    
-  // digitalWrite(WiperUnsetPin, LOW); delay(20);    
-  // delay(10000); // wait for full rotation (about 6 seconds)
-
   // SAMPLE ON STARTUP - SAMPLE
   String datastring = rtc.now().timestamp()+","+String(sample_hydros_M()+","+sample_batt_v());
   Serial.println(datastring);  
@@ -291,13 +281,13 @@ void setup(void){
   SD.remove("/HOURLY.csv");  
   
   // TEST IRID MSG FORMAT
-  // write_to_csv(my_header, datastring, "/HOURLY.csv");
-  // write_to_csv(my_header, datastring, "/HOURLY.csv");
-  // write_to_csv(my_header, datastring, "/HOURLY.csv");
-  // write_to_csv(my_header, datastring, "/HOURLY.csv");
-  // write_to_csv(my_header, datastring, "/HOURLY.csv");
-  // datastring = prep_msg();
-  // Serial.println(datastring);
+  write_to_csv(my_header, datastring, "/HOURLY.csv");
+  write_to_csv(my_header, datastring, "/HOURLY.csv");
+  write_to_csv(my_header, datastring, "/HOURLY.csv");
+  write_to_csv(my_header, datastring, "/HOURLY.csv");
+  write_to_csv(my_header, datastring, "/HOURLY.csv");
+  datastring = prep_msg();
+  Serial.println(datastring);
 }
 
 void loop(void){
