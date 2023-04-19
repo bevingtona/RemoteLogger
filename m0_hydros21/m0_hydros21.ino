@@ -17,7 +17,7 @@
 // #define ISBD_NO_SLEEP_PIN        11
 
 /*Include the libraries we need*/
-#include "RTClib.h" //Needed for communication with Real Time Clock
+#include <RTClib.h> //Needed for communication with Real Time Clock
 #include <SPI.h>//Needed for working with SD card
 #include <SD.h>//Needed for working with SD card
 #include <ArduinoLowPower.h>//Needed for putting Feather M0 to sleep between samples
@@ -25,6 +25,7 @@
 #include <CSV_Parser.h>//Needed for parsing CSV data
 #include <SDI12.h>//Needed for SDI-12 communication
 #include <QuickStats.h>//Needed for computing medians
+// #include <diy_hydro_functions.h>
 
 /*Define global constants*/
 const byte led = 8; // Built in GREEN LED pin (13 conflicts with irid)
@@ -43,6 +44,7 @@ uint32_t sample_freq_m_32;//
 int16_t *irid_freq_h; //
 uint32_t irid_freq_h_32;//
 char **onstart_irid;//
+String onstart_irid_string;//
 DateTime present_time;//Var for keeping the current time
 int err; //IRIDIUM status var
 String myCommand   = ""; //SDI-12 command var
@@ -75,7 +77,8 @@ float read_params(){
   irid_freq_h_32 = irid_freq_h[0];
   Serial.println(irid_freq_h_32);
   onstart_irid = (char**)cp["onstart_irid"];
-  Serial.println(onstart_irid[0]);
+  onstart_irid_string = String(onstart_irid[0]);
+  Serial.println(onstart_irid_string);
   
   return 1;
 }
@@ -276,7 +279,7 @@ void setup(void){
   digitalWrite(SensorUnsetPin, LOW);
 
   // SAMPLE ON STARTUP - SEND MESSAGE
-  if(onstart_irid[0] == "T"){send_msg("startup: "+ datastring, 120, 1);}
+  if(onstart_irid_string == "T"){send_msg("startup: "+ datastring, 120, 1);}
 
   SD.remove("/HOURLY.csv");  
   
@@ -302,7 +305,7 @@ void loop(void){
 
     // SAMPLE IF AT INTERVAL AND ON 0s
     if(present_time.minute() % sample_freq_m_32 == 0 & present_time.second() == 0){    
-        
+            
       // SAMPLE - SET RELAY 
       digitalWrite(SensorSetPin, HIGH); delay(30);
       digitalWrite(SensorSetPin, LOW);

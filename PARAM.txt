@@ -1,0 +1,2 @@
+sample_freq_m,irid_freq_h,onstart_irid
+10,6,F
