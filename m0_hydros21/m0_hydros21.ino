@@ -340,7 +340,6 @@ void loop(void){
     DateTime sample_end = rtc.now();
     uint32_t sleep_time = ((10-(sample_end.second()%10))*1000.0)-500;
     Serial.println(sleep_time);
-    // delay(sleep_time);
     LowPower.sleep(sleep_time); 
     
   }  
