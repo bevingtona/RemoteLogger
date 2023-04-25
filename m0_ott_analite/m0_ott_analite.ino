@@ -409,13 +409,13 @@ void setup(void){
 
   // CONTINUOUS ON STARTUP
   for (int i = 0; i < onstart_samples_32; i++){
-    digitalWrite(SensorSetPin, HIGH); delay(30); (SensorSetPin, LOW);
+    digitalWrite(SensorSetPin, HIGH); delay(30); digitalWrite(SensorSetPin, LOW);
     blinky(1,100,100,100);
     String datastring = String(sample_analite_195())+","+sample_ott_M()+","+sample_ott_V()+","+sample_batt_v();
     Serial.println(datastring);      
     datastring = rtc.now().timestamp()+","+ datastring;
     write_to_csv(my_header, datastring, "/DATA.csv");
-    digitalWrite(SensorUnsetPin, HIGH); delay(30); (SensorUnsetPin, LOW);
+    digitalWrite(SensorUnsetPin, HIGH); delay(30); digitalWrite(SensorUnsetPin, LOW);
   }
 }
 
