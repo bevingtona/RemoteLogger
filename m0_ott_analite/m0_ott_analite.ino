@@ -1,3 +1,5 @@
+// RSOLUTION FIXED!! ALSO NEW PARAM FOR CONTINUOUS ONSTART
+
 // LOG FILE
 // MESSAGE AS BYTES
 // READ METRICS CODE FROM SD
@@ -46,6 +48,8 @@ uint32_t sample_freq_m_32;//
 int16_t *irid_freq_h; //
 uint32_t irid_freq_h_32;//
 char **onstart_irid;//
+int16_t *onstart_samples; //
+uint32_t onstart_samples_32;// 
 int wiper_cnt = 0;
 DateTime present_time;//Var for keeping the current time
 int err; //IRIDIUM status var
@@ -67,7 +71,7 @@ QuickStats stats;//Instance of QuickStats
 
 float read_params(){
     //Set paramters for parsing the parameter file PARAM.txt
-  CSV_Parser cp("sdds", true, ',');
+  CSV_Parser cp("ddsd", true, ',');
 
   /*Read the parameter file 'PARAM.txt', blink (1-sec) if fail to read*/
   while (!cp.readSDfile("/PARAM.txt"))  {blinky(1,1000,1000,1000);}
@@ -80,6 +84,9 @@ float read_params(){
   Serial.println(irid_freq_h_32);
   onstart_irid = (char**)cp["onstart_irid"];
   Serial.println(onstart_irid[0]);
+  onstart_samples = (int16_t*)cp["onstart_samples"];
+  onstart_samples_32 = onstart_samples[0];
+  Serial.println(onstart_samples_32);
   
   return 1;
 }
@@ -205,6 +212,8 @@ String sample_ott_V(){
 
 int sample_analite_195(){
 
+  analogReadResolution(12);
+  
   float values[100]; //Array for storing sampled distances
 
   if (wiper_cnt >= 5)  {  // Probe will wipe after 6 power cycles (1 hr at 10 min interval)
@@ -231,6 +240,7 @@ int sample_analite_195(){
   float ntu_analog = med_turb_alog; //(m * med_turb_alog) + b;
 
   int ntu_int = round(ntu_analog);
+  analogReadResolution(10);
 
   return ntu_int;
 }
@@ -389,13 +399,24 @@ void setup(void){
   SD.remove("/HOURLY.csv");  
 
   // TEST IRID MSG FORMAT
-  // write_to_csv(my_header, datastring, "/HOURLY.csv");
-  // write_to_csv(my_header, datastring, "/HOURLY.csv");
-  // write_to_csv(my_header, datastring, "/HOURLY.csv");
-  // write_to_csv(my_header, datastring, "/HOURLY.csv");
-  // write_to_csv(my_header, datastring, "/HOURLY.csv");
-  // datastring = prep_msg();
-  // Serial.println(datastring);
+  write_to_csv(my_header, datastring, "/HOURLY.csv");
+  write_to_csv(my_header, datastring, "/HOURLY.csv");
+  write_to_csv(my_header, datastring, "/HOURLY.csv");
+  write_to_csv(my_header, datastring, "/HOURLY.csv");
+  write_to_csv(my_header, datastring, "/HOURLY.csv");
+  datastring = prep_msg();
+  Serial.println(datastring);
+
+  // CONTINUOUS ON STARTUP
+  for (int i = 0; i < onstart_samples_32; i++){
+    digitalWrite(SensorSetPin, HIGH); delay(30); (SensorSetPin, LOW);
+    blinky(1,100,100,100);
+    String datastring = String(sample_analite_195())+","+sample_ott_M()+","+sample_ott_V()+","+sample_batt_v();
+    Serial.println(datastring);      
+    datastring = rtc.now().timestamp()+","+ datastring;
+    write_to_csv(my_header, datastring, "/DATA.csv");
+    digitalWrite(SensorUnsetPin, HIGH); delay(30); (SensorUnsetPin, LOW);
+  }
 }
 
 void loop(void){
