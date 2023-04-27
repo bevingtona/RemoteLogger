@@ -348,6 +348,7 @@ void setup(void){
 
   // SET LED  
   pinMode(led, OUTPUT); delay(30); digitalWrite(led, HIGH); delay(2000); digitalWrite(led, LOW);
+  pinMode(13, OUTPUT); delay(30); digitalWrite(13, HIGH); delay(2000); digitalWrite(13, LOW);
   
   // SET RELAYS
   pinMode(WiperSetPin, OUTPUT); digitalWrite(WiperSetPin, HIGH); delay(30); digitalWrite(WiperSetPin, LOW);
@@ -392,7 +393,7 @@ void setup(void){
   // SAMPLE ON STARTUP - UNSET RELAY
   digitalWrite(SensorUnsetPin, HIGH); delay(30);
   digitalWrite(SensorUnsetPin, LOW);
-
+  
   // SAMPLE ON STARTUP - SEND MESSAGE
   if(onstart_irid[0] == "T"){send_msg("startup: "+ datastring, 120, 1);}
 
