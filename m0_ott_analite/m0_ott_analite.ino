@@ -147,6 +147,9 @@ String sample_ott_M(){
   if (sdiResponse.length() > 1)
     mySDI12.clearBuffer();
 
+  if(sdiResponse == "")
+    sdiResponse = "-9,-9,-9";
+    
   return sdiResponse;
 }
 
@@ -206,6 +209,9 @@ String sample_ott_V(){
   //clear buffer
   if (sdiResponse.length() > 1)
     mySDI12.clearBuffer();
+    
+  if(sdiResponse == "")
+    sdiResponse = "-9,-9,-9";
 
   return sdiResponse;
 }
