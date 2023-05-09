@@ -17,7 +17,7 @@
 // #define ISBD_NO_SLEEP_PIN        11
 
 /*Include the libraries we need*/
-#include <RTClib.h> //Needed for communication with Real Time Clock
+#include "RTClib.h" //Needed for communication with Real Time Clock
 #include <SPI.h>//Needed for working with SD card
 #include <SD.h>//Needed for working with SD card
 #include <ArduinoLowPower.h>//Needed for putting Feather M0 to sleep between samples
@@ -36,7 +36,7 @@ const byte dataPin = 12; // The pin of the SDI-12 data bus
 const byte vbatPin = 9;
 
 /*Define global vars */
-String my_header = "datetime,water_level_mm,water_temp_c,water_ec_dcm,batt_v";
+String my_header = "datetime,water_level_m,water_temp_c,ott_status,ott_rh,ott_dew,ott_deg,batt_v";
 
 int16_t *sample_freq_m; //
 uint32_t sample_freq_m_32;// 
@@ -87,7 +87,7 @@ float read_params(){
   return 1;
 }
 
-String sample_hydros_M(){
+String sample_ott_M(){
 
   myCommand = String(SENSOR_ADDRESS) + "M!";// first command to take a measurement
 
@@ -145,6 +145,69 @@ String sample_hydros_M(){
 
   if(sdiResponse == "")
     sdiResponse = "-9,-9,-9";
+    
+  return sdiResponse;
+}
+
+String sample_ott_V(){
+
+  myCommand = String(SENSOR_ADDRESS) + "V!";// first command to take a measurement
+
+  mySDI12.sendCommand(myCommand);
+  delay(30);  // wait a while for a response
+
+  while (mySDI12.available()) {  // build response string
+    char c = mySDI12.read();
+    if ((c != '\n') && (c != '\r')) {
+      sdiResponse += c;
+      delay(10);  // 1 character ~ 7.5ms
+    }
+  }
+
+  /*Clear buffer*/
+  if (sdiResponse.length() > 1)
+    mySDI12.clearBuffer();
+
+  delay(2000);       // delay between taking reading and requesting data
+  sdiResponse = "";  // clear the response string
+
+
+  // next command to request data from last measurement
+  myCommand = String(SENSOR_ADDRESS) + "D0!";
+
+  mySDI12.sendCommand(myCommand);
+  delay(30);  // wait a while for a response
+
+  while (mySDI12.available()) {  // build string from response
+    char c = mySDI12.read();
+    if(c == '-'){c = (char) ',';}    
+    if ((c != '\n') && (c != '\r')) {
+      sdiResponse += c;
+      delay(10);  // 1 character ~ 7.5ms
+    }
+  }
+
+  //subset responce
+  sdiResponse = sdiResponse.substring(3);
+
+  for (int i = 0; i < sdiResponse.length(); i++)
+  {
+
+    char c = sdiResponse.charAt(i);
+
+    if (c == '+')
+    {
+      sdiResponse.setCharAt(i, ',');
+    }
+
+  }
+
+  //clear buffer
+  if (sdiResponse.length() > 1)
+    mySDI12.clearBuffer();
+    
+  if(sdiResponse == "")
+    sdiResponse = "-9,-9,-9";
 
   return sdiResponse;
 }
@@ -189,20 +252,24 @@ float write_to_csv(String header, String datastring_for_csv, String outname) {
 String prep_msg(){
   
   SD.begin(chipSelect);
-  CSV_Parser cp("sffff", true, ',');  // Set paramters for parsing the log file
+  CSV_Parser cp("sfffffff", true, ',');  // Set paramters for parsing the log file
   cp.readSDfile("/HOURLY.csv");
   int num_rows = cp.getRowsCount();  //Get # of rows
-    
+
   char **out_datetimes = (char **)cp["datetime"];
-  float *out_water_level_mm = (float *)cp["water_level_mm"];
+  float *out_ntu = (float *)cp["ntu"];
+  float *out_water_level_m = (float *)cp["water_level_m"];
   float *out_water_temp_c = (float *)cp["water_temp_c"];
-  float *out_water_ec_dcm = (float *)cp["water_ec_dcm"];
+  float *out_ott_status = (float *)cp["ott_status"];
+  float *out_ott_rh = (float *)cp["ott_rh"];
+  float *out_ott_dew = (float *)cp["ott_dew"];
+  float *out_ott_deg = (float *)cp["ott_deg"];
   float *out_batt_v = (float *)cp["batt_v"];
-  read_params();
-  String datastring_msg = "ABC:" + String(out_datetimes[0]).substring(2, 4) + String(out_datetimes[0]).substring(5, 7) + String(out_datetimes[0]).substring(8, 10) + String(out_datetimes[0]).substring(11, 13) + ":" + String(round(out_batt_v[num_rows-1] * 100)) + ":";
+  
+  String datastring_msg = "ABD:" + String(out_datetimes[0]).substring(2, 4) + String(out_datetimes[0]).substring(5, 7) + String(out_datetimes[0]).substring(8, 10) + String(out_datetimes[0]).substring(11, 13) + ":" + String(round(out_batt_v[num_rows-1] * 100)) + ":";
   
   for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
-    datastring_msg = datastring_msg + String(round(out_water_level_mm[i])) + ',' + String(round(out_water_temp_c[i]*10)) + ',' + String(round(out_water_ec_dcm[i])) + ':';              
+    datastring_msg = datastring_msg + String(round(out_water_level_m[i]*1000)) + ',' + String(round(out_water_temp_c[i]*10)) + ',' + String(round(out_ntu[i])) + ':';              
     }
   return datastring_msg;
 }
@@ -270,7 +337,7 @@ void setup(void){
   
   // SAMPLE ON STARTUP - SAMPLE
   pinMode(SensorSetPin, OUTPUT); digitalWrite(SensorSetPin, HIGH); delay(30); digitalWrite(SensorSetPin, LOW); delay(1000);
-  String datastring = rtc.now().timestamp()+","+sample_hydros_M()+","+sample_batt_v();
+  String datastring = rtc.now().timestamp()+","+sample_ott_M()+","+sample_ott_V()+","+sample_batt_v();
   pinMode(SensorUnsetPin, OUTPUT); digitalWrite(SensorUnsetPin, HIGH); delay(30); digitalWrite(SensorUnsetPin, LOW);
   
   Serial.println(datastring);      
@@ -296,7 +363,7 @@ void setup(void){
   for (int i = 0; i < onstart_samples_32; i++){ //
     blinky(1,100,100,100);
     pinMode(SensorSetPin, OUTPUT); digitalWrite(SensorSetPin, HIGH); delay(30); digitalWrite(SensorSetPin, LOW); delay(1000);
-    String datastring = sample_hydros_M()+","+sample_batt_v();
+    String datastring = sample_ott_M()+","+sample_ott_V()+","+sample_batt_v();
     pinMode(SensorUnsetPin, OUTPUT); digitalWrite(SensorUnsetPin, HIGH); delay(30); digitalWrite(SensorUnsetPin, LOW);
     Serial.println(datastring);      
     datastring = rtc.now().timestamp()+","+ datastring;
@@ -319,7 +386,7 @@ void loop(void){
         
       // SAMPLE - SAMPLE 
       pinMode(SensorSetPin, OUTPUT); digitalWrite(SensorSetPin, HIGH); delay(30); digitalWrite(SensorSetPin, LOW); delay(1000);
-      String datastring = rtc.now().timestamp()+","+sample_hydros_M()+","+sample_batt_v();
+      String datastring = rtc.now().timestamp()+","+sample_ott_M()+","+sample_ott_V()+","+sample_batt_v();
       pinMode(SensorUnsetPin, OUTPUT); digitalWrite(SensorUnsetPin, HIGH); delay(30); digitalWrite(SensorUnsetPin, LOW);
       Serial.println(datastring);
 

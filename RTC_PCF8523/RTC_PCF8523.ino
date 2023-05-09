@@ -16,8 +16,8 @@ void setup () {
     while (1) delay(10);
   }
 
-  rtc.adjust(DateTime(F(__DATE__), F(__TIME__));
-  // rtc.adjust(DateTime(F(__DATE__), F(__TIME__))+TimeSpan(0,7,0,0));
+  // rtc.adjust(DateTime(F(__DATE__), F(__TIME__));
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__))+TimeSpan(0,7,0,0));
 
   rtc.start();
 

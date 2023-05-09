@@ -48,6 +48,7 @@ uint32_t sample_freq_m_32;//
 int16_t *irid_freq_h; //
 uint32_t irid_freq_h_32;//
 char **onstart_irid;//
+String onstart_irid_str = "";//
 int16_t *onstart_samples; //
 uint32_t onstart_samples_32;// 
 int wiper_cnt = 0;
@@ -354,7 +355,7 @@ void setup(void){
 
   // SET LED  
   pinMode(led, OUTPUT); delay(30); digitalWrite(led, HIGH); delay(2000); digitalWrite(led, LOW);
-  pinMode(13, OUTPUT); delay(30); digitalWrite(13, HIGH); delay(2000); digitalWrite(13, LOW);
+  pinMode(13, OUTPUT); delay(30); digitalWrite(13, LOW);
   
   // SET RELAYS
   pinMode(WiperSetPin, OUTPUT); digitalWrite(WiperSetPin, HIGH); delay(30); digitalWrite(WiperSetPin, LOW);
@@ -363,7 +364,7 @@ void setup(void){
   pinMode(SensorUnsetPin, OUTPUT); digitalWrite(SensorUnsetPin, HIGH); delay(30); digitalWrite(SensorUnsetPin, LOW);
 
   // SET IRIDIUM 
-  pinMode(IridPwrPin, OUTPUT);// delay(30); digitalWrite(IridPwrPin, LOW);
+  pinMode(IridPwrPin, OUTPUT); delay(30); digitalWrite(IridPwrPin, LOW);
 
   // START SDI-12 PROTOCOL
   mySDI12.begin();
