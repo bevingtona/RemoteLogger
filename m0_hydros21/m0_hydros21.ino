@@ -40,9 +40,9 @@ const byte vbatPin = 9;
 String my_header = "datetime,water_level_mm,water_temp_c,water_ec_dcm,batt_v";
 
 int16_t *sample_freq_m; //
-uint32_t sample_freq_m_32;// 
+uint16_t sample_freq_m_32;// 
 int16_t *irid_freq_h; //
-uint32_t irid_freq_h_32;//
+uint16_t irid_freq_h_32;//
 char **onstart_irid;//
 String onstart_irid_string;//
 DateTime present_time;//Var for keeping the current time
@@ -69,6 +69,7 @@ float read_params(){
 
   /*Read the parameter file 'PARAM.txt', blink (1-sec) if fail to read*/
   while (!cp.readSDfile("/PARAM.txt"))  {blinky(1,1000,1000,1000);}
+  cp.parseLeftover();
   
   sample_freq_m = (int16_t*)cp["sample_freq_m"];
   sample_freq_m_32 = sample_freq_m[0];
@@ -79,6 +80,10 @@ float read_params(){
   onstart_irid = (char**)cp["onstart_irid"];
   onstart_irid_string = String(onstart_irid[0]);
   Serial.println(onstart_irid_string);
+
+  delete sample_freq_m;
+  delete irid_freq_h;
+  delete onstart_irid;
   
   return 1;
 }
@@ -184,6 +189,8 @@ String prep_msg(){
   SD.begin(chipSelect);
   CSV_Parser cp("sffff", true, ',');  // Set paramters for parsing the log file
   cp.readSDfile("/HOURLY.csv");
+  cp.parseLeftover();
+
   int num_rows = cp.getRowsCount();  //Get # of rows
     
   char **out_datetimes = (char **)cp["datetime"];
@@ -191,9 +198,15 @@ String prep_msg(){
   float *out_water_temp_c = (float *)cp["water_temp_c"];
   float *out_water_ec_dcm = (float *)cp["water_ec_dcm"];
   float *out_batt_v = (float *)cp["batt_v"];
-  read_params();
+
   String datastring_msg = "ABC:" + String(out_datetimes[0]).substring(2, 4) + String(out_datetimes[0]).substring(5, 7) + String(out_datetimes[0]).substring(8, 10) + String(out_datetimes[0]).substring(11, 13) + ":" + String(round(out_batt_v[num_rows-1] * 100)) + ":";
   
+  delete out_datetimes;
+  delete out_water_level_mm;
+  delete out_water_temp_c;
+  delete out_water_ec_dcm;
+  delete out_batt_v;
+
   for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
     datastring_msg = datastring_msg + String(round(out_water_level_mm[i])) + ',' + String(round(out_water_temp_c[i]*10)) + ',' + String(round(out_water_ec_dcm[i])) + ':';              
     }
