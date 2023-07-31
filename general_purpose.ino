@@ -1,3 +1,6 @@
+// Add low power cutoff for iridium and blinky light - if < 4V, then 10 min sleep and iridium every 24 hrs
+// Add string concatenation 
+
 /*Include the libraries we need*/
 #include <time.h>
 #include "RTClib.h"           //Needed for communication with Real Time Clock
@@ -31,11 +34,8 @@ char **onstart_irid;
 String onstart_irid_string;
 int16_t *onstart_samples;
 uint16_t onstart_samples_16;
-
-String hydros_M = "-9,-9,-9";
-uint16_t water_level_mm;
-uint16_t water_temp_c;
-uint16_t water_ec_dcm;
+uint16_t blink_freq_s = 10;
+uint16_t watchdog_timer = 30000;
 
 String myCommand = "";    // SDI-12 command var
 String sdiResponse = "";  // SDI-12 responce var
@@ -156,49 +156,93 @@ void setup(void) {
 
 void loop(void) {
 
-  int countdownMS = Watchdog.enable(30000);
+  int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
 
-  // WAKE UP, WHAT TIME?
-  DateTime present_time = rtc.now();
-  // Serial.println(present_time.timestamp());
-
-  // BLINK IF INTERVAL OF 10s
-  if (present_time.second() % 10 == 0) {
-    blinky(1, 20, 200, 200);
+  if(sample_batt_v() < 3.8) // Check battery to decide if should use low power mode
+      
+  // HIGH POWER MODE ##########################################################################################################
+  { 
+    DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
     Watchdog.reset();
 
-    // SAMPLE IF AT INTERVAL AND ON 0s
-    if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0) {
-
-      // SAMPLE - SAMPLE
+    if (present_time.second() % blink_freq_s == 0) // BLINK INTERVAL, THEN DEEP SLEEP
+    {
+      blinky(1, 20, 200, 200);
       Watchdog.reset();
-      String sample = take_measurement();
-      
-      // SAVE TO HOURLY IF ON THE HOUR
-      if (present_time.minute() == 0 & present_time.hour() % 2 == 0) {
 
+      if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0) // SAMPLE IF AT INTERVAL AND ON 0s
+      {
+        String sample = take_measurement();
+        String comment = "logging";
         Watchdog.reset();
-        String msg = prep_msg(present_time);
-        Watchdog.disable(); // STOP Watchdog for iridium transmission
-        int irid_err = send_msg(msg);
-        Watchdog.enable(30000);
-        String comment = "iridium " + irid_err;
-      
+        
+        if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0) { // SEND MESSAGE AT INTERVAL
+
+          Watchdog.reset(); // RESER BEFORE SAMPLE BECAUSE SOME SAMPLES CAN BE LONG (i.e. ANALITE WIPER)
+          String msg = prep_msg(present_time);
+          Watchdog.disable(); // STOP WATCHDOG FOR IRIDIUM TRANSMISSION
+          int irid_err = send_msg(msg);
+          Watchdog.enable(watchdog_timer);
+          comment = "iridium " + irid_err;
+        
+        }
+
+        write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample + "," + comment, "/DATA.csv");// SAMPLE - WRITE TO CSV
+        Watchdog.reset();
+  
       }
 
-      // SAMPLE - WRITE TO CSV
-      Watchdog.reset();
-      write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample + ",log", "/DATA.csv");
+      Watchdog.disable();
+      DateTime sample_end = rtc.now();
+      uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
+      // Serial.println(sleep_time);
+      // delay(sleep_time);
+      LowPower.deepSleep(sleep_time);
     }
+  }else{
+          
+  // LOW POWER MODE ##########################################################################################################
+  { 
+    DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
+    Watchdog.reset();
 
-    Watchdog.disable();
-    DateTime sample_end = rtc.now();
-    uint32_t sleep_time = ((10 - (sample_end.second() % 10)) * 1000.0) - 1000;
-    // Serial.println(sleep_time);
-    // delay(sleep_time);
-    LowPower.deepSleep(sleep_time);
+    if (present_time.second() % 30 == 0) // BLINK INTERVAL, THEN DEEP SLEEP
+    {
+      blinky(1, 20, 200, 200);
+      Watchdog.reset();
+
+      if (present_time.minute() == 0 & present_time.second() == 0) // SAMPLE IF AT INTERVAL AND ON 0s
+      {
+        String sample = take_measurement();
+        String comment = "lowpower";
+        Watchdog.reset();
+        
+        if (present_time.minute() == 0 & present_time.hour() % 12 == 0) { // SEND MESSAGE AT INTERVAL
+
+          Watchdog.reset(); // RESER BEFORE SAMPLE BECAUSE SOME SAMPLES CAN BE LONG (i.e. ANALITE WIPER)
+          String msg = prep_msg(present_time);
+          Watchdog.disable(); // STOP WATCHDOG FOR IRIDIUM TRANSMISSION
+          int irid_err = send_msg(msg);
+          Watchdog.enable(watchdog_timer);
+          comment = "iridium " + irid_err;
+        
+        }
+
+        write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample + "," + comment, "/DATA.csv");// SAMPLE - WRITE TO CSV
+        Watchdog.reset();
+  
+      }
+
+      Watchdog.disable();
+      DateTime sample_end = rtc.now();
+      uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
+      // Serial.println(sleep_time);
+      // delay(sleep_time);
+      LowPower.deepSleep(sleep_time);
+    }
   }
-
+  }
+  
   Watchdog.disable();
   delay(500);
 }
