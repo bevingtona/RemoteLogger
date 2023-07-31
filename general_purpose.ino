@@ -1,4 +1,3 @@
-// Add low power cutoff for iridium and blinky light - if < 4V, then 10 min sleep and iridium every 24 hrs
 // Add string concatenation 
 
 /*Include the libraries we need*/
@@ -36,6 +35,12 @@ int16_t *onstart_samples;
 uint16_t onstart_samples_16;
 uint16_t blink_freq_s = 10;
 uint16_t watchdog_timer = 30000;
+int delimiter_1;
+int delimiter_2;
+float water_level_mm;
+float water_temp_c;
+float water_ec_dcm;
+float lowPowerThresh = 3.7;
 
 String myCommand = "";    // SDI-12 command var
 String sdiResponse = "";  // SDI-12 responce var
@@ -58,7 +63,15 @@ String take_measurement() {
   digitalWrite(SensorSetPin, HIGH); delay(50);
   digitalWrite(SensorSetPin, LOW); delay(1000);
 
-  String msmt = String(sample_batt_v()) + "," + freeMemory() + "," + sample_hydros_M();
+  // IF HYDROS
+  String hydrosString = sample_hydros_M();
+  int delimeter_1 = hydrosString.indexOf(",");
+  int delimeter_2 = hydrosString.indexOf(",", delimeter_1 + 1);
+  water_level_mm = hydrosString.substring(0, delimeter_1).toFloat();
+  water_temp_c = hydrosString.substring(delimeter_1+1, delimeter_2).toFloat();
+  water_ec_dcm = round(hydrosString.substring(delimeter_2+1, hydrosString.length()).toFloat());
+  
+  String msmt = String(sample_batt_v()) + "," + freeMemory() + "," + water_level_mm + "," + water_temp_c + "," + water_ec_dcm;
 
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
@@ -68,16 +81,16 @@ String take_measurement() {
 
 String prep_msg(DateTime present_time) {
 
-  digitalWrite(SensorSetPin, HIGH); delay(50);
-  digitalWrite(SensorSetPin, LOW); delay(1000);
-
-  String msmt = String(sample_batt_v()) + "," + freeMemory() + "," + sample_hydros_M();
-  msmt.replace(",",":");
-
-  digitalWrite(SensorUnsetPin, HIGH); delay(50);
-  digitalWrite(SensorUnsetPin, LOW); delay(50);
-
-  String out = my_letter + ":" + present_time.timestamp().substring(2, 4) + present_time.timestamp().substring(5, 7) + present_time.timestamp().substring(8, 10) + present_time.timestamp().substring(11, 13) + ":" + msmt + ":";
+  String out = my_letter + ":" + 
+    present_time.timestamp().substring(2, 4) + 
+    present_time.timestamp().substring(5, 7) + 
+    present_time.timestamp().substring(8, 10) + 
+    present_time.timestamp().substring(11, 13) + ":" + 
+    String(round(sample_batt_v()*100)) + "," + 
+    round(freeMemory()/100) + "," + 
+    round(water_level_mm) + "," + 
+    round(water_temp_c*10) + "," + 
+    round(water_ec_dcm) + ":";
   
   return out;
 }
@@ -98,6 +111,8 @@ void setup(void) {
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
   pinMode(led, OUTPUT); digitalWrite(led, LOW); delay(50);
   
+  pinMode(dataPin, INPUT); 
+
   pinMode(SensorSetPin, OUTPUT); 
   digitalWrite(SensorSetPin, HIGH); delay(50);
   digitalWrite(SensorSetPin, LOW); delay(50);
@@ -158,10 +173,11 @@ void loop(void) {
 
   int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
 
-  if(sample_batt_v() < 3.8) // Check battery to decide if should use low power mode
+  if(sample_batt_v() > lowPowerThresh) // Check battery to decide if should use low power mode
       
   // HIGH POWER MODE ##########################################################################################################
   { 
+    Serial.println("High power mode...");
     DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
     Watchdog.reset();
 
@@ -203,6 +219,7 @@ void loop(void) {
           
   // LOW POWER MODE ##########################################################################################################
   { 
+    Serial.println("Low power mode...");
     DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
     Watchdog.reset();
 
@@ -246,20 +263,6 @@ void loop(void) {
   Watchdog.disable();
   delay(500);
 }
-
-// #define ISBD_SUCCESS             0
-// #define ISBD_ALREADY_AWAKE       1
-// #define ISBD_SERIAL_FAILURE      2
-// #define ISBD_PROTOCOL_ERROR      3
-// #define ISBD_CANCELLED           4
-// #define ISBD_NO_MODEM_DETECTED   5
-// #define ISBD_SBDIX_FATAL_ERROR   6
-// #define ISBD_SENDRECEIVE_TIMEOUT 7
-// #define ISBD_RX_OVERFLOW         8
-// #define ISBD_REENTRANT           9
-// #define ISBD_IS_ASLEEP           10
-// #define ISBD_NO_SLEEP_PIN        11
-
 
 void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
   for (int i = 1; i <= n; i++) {
