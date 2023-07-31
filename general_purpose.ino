@@ -1,3 +1,4 @@
+// split samples into parameters
 // Add string concatenation 
 
 /*Include the libraries we need*/
@@ -211,8 +212,6 @@ void loop(void) {
       Watchdog.disable();
       DateTime sample_end = rtc.now();
       uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
-      // Serial.println(sleep_time);
-      // delay(sleep_time);
       LowPower.deepSleep(sleep_time);
     }
   }else{
@@ -252,9 +251,7 @@ void loop(void) {
 
       Watchdog.disable();
       DateTime sample_end = rtc.now();
-      uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
-      // Serial.println(sleep_time);
-      // delay(sleep_time);
+      uint32_t sleep_time = ((30 - (sample_end.second() % 30)) * 1000.0) - 1000;
       LowPower.deepSleep(sleep_time);
     }
   }
