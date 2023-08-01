@@ -109,6 +109,14 @@ To build the Hydrometric Data Logger, you will need the following materials:
 
 3.  Particle Boron LTE
 
+# Wiring Diagrams 
+
+1.  Feather M0 + RockBlock + Hydros-21
+2.  Feather M0 + RockBlock + Hydros-21 + Analite
+3.  Feather M0 + RockBlock + OTT-PLS 500
+4.  Feather M0 + RockBlock + OTT-PLS 500 + Analite
+5.  Feather M0 + RockBlock + MaxBotix 7052 + SHT-30
+
 # How-to build
 
 1.  Order equipment
@@ -127,7 +135,18 @@ To build the Hydrometric Data Logger, you will need the following materials:
 
 8.  Bench test
 
-# Code 
+# Code
+
+## Input 
+
+1.  param.txt
+
+## Output 
+
+1.  CSV:
+    1.  2023-07-21 06:00:00 4.31V, 23400kb, 234mm, 22.3C, 123EC:
+2.  Message:
+    1.  ABD:23072106:431,234,234,223,123:
 
 ## Logic 
 
