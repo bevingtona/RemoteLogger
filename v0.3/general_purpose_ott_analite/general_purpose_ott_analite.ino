@@ -45,6 +45,7 @@ double water_level_mm = -8.0;
 double water_temp_c = -8.0;
 double water_ec_dcm = -8.0;
 double water_ntu = -8.0;
+double ott_status = -8.0;
 float lowPowerThresh = 3.8;
 int wiper_cnt = 0;
 
