@@ -140,15 +140,18 @@ materials:
 
 3.  Solder components that require it
 
-4.  Assemble
+4.  Assemble using wiring diagram
+- Charge controller: Cut 'therm' trace if thermistor is connected, cut 1.0A trace and solder 1.5A trace for faster charging, test charge rate by connecting multimeter (10A to OUT, COM to GRD) and set multimeter to 200mA, should read 1.5A
+   
+6. Testing
 
-5.  Register modem
+8.  Register modem
 
-6.  Charge battery
+9.  Charge battery
 
-7.  Load code
+10.  Load code
 
-8.  Bench test
+11.  Bench test
 
 # Code
 
