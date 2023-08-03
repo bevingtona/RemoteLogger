@@ -47,6 +47,11 @@ versatile and reliable solution for your hydrometric data logging needs.
 3.  Solder components that require it
 
 4.  Assemble using wiring diagram
+
+- RockBlock 9603: Two LEDs to indicate power status. The Red LED indicates the presence of a DC power supply. The Green LED indicates that the super capacitor has sufficient charge to switch on the Iridium module, and successfully transmit. If the Green LED is flashing, this can indicate the modem is drawing too much current from the supply. Try connecting the unit to another supply ie a USB power supply instead of a computer. If it is still flashing, this can indicate a faulty modem or cable.
+[Wiring](https://docs.rockblock.rock7.com/docs/connectors)
+
+
 - Charge controller: Cut 'therm' trace if thermistor is connected, cut 1.0A trace and solder 1.5A trace for faster charging, test charge rate by connecting multimeter (10A to OUT, COM to GRD) and set multimeter to 200mA, should read 1.5A ([Data sheet](https://cdn-learn.adafruit.com/downloads/pdf/adafruit-bq24074-universal-usb-dc-solar-charger-breakout.pdf))
    
 6. Testing
@@ -111,6 +116,11 @@ versatile and reliable solution for your hydrometric data logging needs.
         3.  Send data every 12 hr
 
         4.  Sync clock every 5 days at noon
+
+
+# Tools 
+
+  1. RockBlock switch SMA and Patch Antenna = 1.5 mm allen key
 
 
 # **Materials**
