@@ -51,7 +51,18 @@ versatile and reliable solution for your hydrometric data logging needs.
 - RockBlock 9603: Two LEDs to indicate power status. The Red LED indicates the presence of a DC power supply. The Green LED indicates that the super capacitor has sufficient charge to switch on the Iridium module, and successfully transmit. If the Green LED is flashing, this can indicate the modem is drawing too much current from the supply. Try connecting the unit to another supply ie a USB power supply instead of a computer. If it is still flashing, this can indicate a faulty modem or cable.
 [Wiring](https://docs.rockblock.rock7.com/docs/connectors)
 External Patch antenna J3 connector [See here](https://docs.rockblock.rock7.com/docs/switching-rockblock-9603-antenna-mode) 
-
+// #define ISBD_SUCCESS             0
+// #define ISBD_ALREADY_AWAKE       1
+// #define ISBD_SERIAL_FAILURE      2
+// #define ISBD_PROTOCOL_ERROR      3
+// #define ISBD_CANCELLED           4
+// #define ISBD_NO_MODEM_DETECTED   5
+// #define ISBD_SBDIX_FATAL_ERROR   6
+// #define ISBD_SENDRECEIVE_TIMEOUT 7
+// #define ISBD_RX_OVERFLOW         8
+// #define ISBD_REENTRANT           9
+// #define ISBD_IS_ASLEEP           10
+// #define ISBD_NO_SLEEP_PIN        11
 
 - Charge controller: Cut 'therm' trace if thermistor is connected, cut 1.0A trace and solder 1.5A trace for faster charging, test charge rate by connecting multimeter (10A to OUT, COM to GRD) and set multimeter to 200mA, should read 1.5A ([Data sheet](https://cdn-learn.adafruit.com/downloads/pdf/adafruit-bq24074-universal-usb-dc-solar-charger-breakout.pdf))
    
