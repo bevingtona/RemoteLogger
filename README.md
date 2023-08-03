@@ -30,6 +30,89 @@ versatile and reliable solution for your hydrometric data logging needs.
 
 - Open-source and relatively low-cost
 
+# Wiring Diagrams
+
+1.  Feather M0 + RockBlock + Hydros-21
+2.  Feather M0 + RockBlock + Hydros-21 + Analite
+3.  Feather M0 + RockBlock + OTT-PLS 500
+4.  Feather M0 + RockBlock + OTT-PLS 500 + Analite
+5.  Feather M0 + RockBlock + MaxBotix 7052 + SHT-30
+
+# How-to build
+
+1.  Order equipment
+
+2.  Set-up work station
+
+3.  Solder components that require it
+
+4.  Assemble using wiring diagram
+- Charge controller: Cut 'therm' trace if thermistor is connected, cut 1.0A trace and solder 1.5A trace for faster charging, test charge rate by connecting multimeter (10A to OUT, COM to GRD) and set multimeter to 200mA, should read 1.5A ([Data sheet](https://cdn-learn.adafruit.com/downloads/pdf/adafruit-bq24074-universal-usb-dc-solar-charger-breakout.pdf))
+   
+6. Testing
+
+8.  Register modem
+
+9.  Charge battery
+
+10.  Load code
+
+11.  Bench test
+
+# Code
+
+## Input
+
+1.  param.txt
+
+## Output
+
+1.  CSV:
+    1.  2023-07-21 06:00:00 4.31V, 23400kb, 234mm, 22.3C, 123EC:
+2.  Message:
+    1.  ABD:23072106:431,234,234,223,123:
+
+## Logic
+
+1.  Load libraries
+2.  Define pins
+3.  Define global variables
+4.  Setup
+    1.  Open Serial connection
+
+    2.  Set pin modes
+
+    3.  Checks, print
+
+    4.  Read params, print
+
+    5.  Sample, print
+
+    6.  Onstart sample, print
+
+    7.  Send irid, print
+5.  Loop
+    1.  If batt \> 3.8V -\> High power mode
+
+        1.  Blink every 10s, then deep sleep
+
+        2.  Sample and log at interval (usually 10 min)
+
+        3.  Send data at interval (usually 2 hours)
+
+        4.  Sync clock every 5 days at noon
+
+    2.  If batt \< 3.8V -\> Low power mode
+
+        1.  Blink every 30s, then deep sleep
+
+        2.  Sample and log every 1 hr
+
+        3.  Send data every 12 hr
+
+        4.  Sync clock every 5 days at noon
+
+
 # **Materials**
 
 To build the Hydrometric Data Logger, you will need the following
@@ -123,88 +206,6 @@ materials:
 2.  SWARM
 
 3.  Particle Boron LTE
-
-# Wiring Diagrams
-
-1.  Feather M0 + RockBlock + Hydros-21
-2.  Feather M0 + RockBlock + Hydros-21 + Analite
-3.  Feather M0 + RockBlock + OTT-PLS 500
-4.  Feather M0 + RockBlock + OTT-PLS 500 + Analite
-5.  Feather M0 + RockBlock + MaxBotix 7052 + SHT-30
-
-# How-to build
-
-1.  Order equipment
-
-2.  Set-up work station
-
-3.  Solder components that require it
-
-4.  Assemble using wiring diagram
-- Charge controller: Cut 'therm' trace if thermistor is connected, cut 1.0A trace and solder 1.5A trace for faster charging, test charge rate by connecting multimeter (10A to OUT, COM to GRD) and set multimeter to 200mA, should read 1.5A
-   
-6. Testing
-
-8.  Register modem
-
-9.  Charge battery
-
-10.  Load code
-
-11.  Bench test
-
-# Code
-
-## Input
-
-1.  param.txt
-
-## Output
-
-1.  CSV:
-    1.  2023-07-21 06:00:00 4.31V, 23400kb, 234mm, 22.3C, 123EC:
-2.  Message:
-    1.  ABD:23072106:431,234,234,223,123:
-
-## Logic
-
-1.  Load libraries
-2.  Define pins
-3.  Define global variables
-4.  Setup
-    1.  Open Serial connection
-
-    2.  Set pin modes
-
-    3.  Checks, print
-
-    4.  Read params, print
-
-    5.  Sample, print
-
-    6.  Onstart sample, print
-
-    7.  Send irid, print
-5.  Loop
-    1.  If batt \> 3.8V -\> High power mode
-
-        1.  Blink every 10s, then deep sleep
-
-        2.  Sample and log at interval (usually 10 min)
-
-        3.  Send data at interval (usually 2 hours)
-
-        4.  Sync clock every 5 days at noon
-
-    2.  If batt \< 3.8V -\> Low power mode
-
-        1.  Blink every 30s, then deep sleep
-
-        2.  Sample and log every 1 hr
-
-        3.  Send data every 12 hr
-
-        4.  Sync clock every 5 days at noon
 
 # How-To Guide
 
