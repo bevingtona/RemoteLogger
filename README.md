@@ -186,9 +186,14 @@ materials:
 
 2.  **Hydrometric** (Non-contact)
 
-    1.  [MaxBotix
-        7052](https://www.digikey.ca/en/products/detail/maxbotix-inc/MB7052-100/7896790)
+    1.  [XL-MaxSonar® - WR/WRC MB7052 7m](https://www.digikey.ca/en/products/detail/maxbotix-inc/MB7052-100/7896790)
         (\~170\$CAD) Water level
+    2.  [HRXL-MaxSonar-WR MB7368 10m](https://www.digikey.ca/en/products/detail/maxbotix-inc/MB7368-100/10279126) (\~206.08\$CAD) Water level
+
+
+        
+
+        
 
 3.  **Climate** (Temp/RH/Snow)
 
