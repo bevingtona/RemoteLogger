@@ -16,8 +16,11 @@ void setup () {
     while (1) delay(10);
   }
 
-  // rtc.adjust(DateTime(F(__DATE__), F(__TIME__));
-  rtc.adjust(DateTime(F(__DATE__), F(__TIME__))+TimeSpan(0,7,0,0));
+  // USE IF LAPTOP IS IN UTC
+  // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)); 
+
+  // USE IF LAPTOP IS IN PDT AND WANT TO CONVERT TO UTC
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__))+TimeSpan(0,7,0,0)); 
 
   rtc.start();
 
