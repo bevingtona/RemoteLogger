@@ -83,7 +83,6 @@ String take_measurement() {
   water_ntu = sample_analite_195().toDouble();
 
   String msmt = String(sample_batt_v()) + "," + freeMemory() + "," + String(water_level_mm) + "," + water_temp_c + "," + water_ec_dcm + "," + water_ntu;
-  // String msmt = String(sample_batt_v()) + "," + String(water_level_mm) + "," + water_temp_c + "," + water_ec_dcm + "," + water_ntu;
 
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
@@ -110,17 +109,13 @@ String prep_msg(DateTime present_time) {
 }
 
 void setup(void) {
-  
+
+  int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
+
   delay(3000);
   Serial.begin(9600);
   Serial.println("###########################################");
   Serial.println("starting");
-
-  // SET PINS
-  // for(int i=2; i<=19; i++) {
-  //   pinMode(i, OUTPUT);
-  //   digitalWrite(i, LOW);
-  // }
 
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
   pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(1000); digitalWrite(led, LOW); delay(50);
@@ -134,15 +129,17 @@ void setup(void) {
 
   digitalWrite(SensorSetPin, HIGH); delay(50);
   digitalWrite(SensorSetPin, LOW); delay(50);
-  digitalWrite(WiperSetPin, HIGH); delay(50); 
-  digitalWrite(WiperSetPin, LOW); delay(50); delay(100);
+  digitalWrite(WiperSetPin, HIGH); delay(50); delay(100);
+  digitalWrite(WiperSetPin, LOW); delay(50); 
   digitalWrite(WiperUnsetPin, HIGH); delay(50); 
-  digitalWrite(WiperUnsetPin, LOW); delay(50); 
+  digitalWrite(WiperUnsetPin, LOW); delay(50); delay(8000);
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
 
   pinMode(IridPwrPin, OUTPUT);
   digitalWrite(IridPwrPin, LOW); delay(50);
+
+  Watchdog.reset();
 
   // START SDI-12 PROTOCOL
   Serial.println(" - check sdi12");
@@ -164,119 +161,75 @@ void setup(void) {
   Serial.print(" - onstart_irid_string: "); Serial.println(onstart_irid_string);
   Serial.print(" - onstart_samples_16: "); Serial.println(onstart_samples_16);
 
+  Watchdog.reset();
+
   // CHECK SENSORS
   Serial.println("check sensors");
-  take_measurement();
   String datastring_start = rtc.now().timestamp() + "," + take_measurement();
   Serial.print(" - "); Serial.println(datastring_start);
   Serial.print(" - "); Serial.println(prep_msg(rtc.now()));
   write_to_csv(my_header + ",comment", datastring_start + ",startup", "/DATA.csv");
 
+  Watchdog.reset();
+
   // SAMPLE ON STARTUP - SEND MESSAGE
   if (onstart_irid_string == "T") {
+    Watchdog.disable();
     Serial.println("check irid");
     irid_test(datastring_start);
+    int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
   };
 
   // ONSTART SAMPLES
   Serial.println("check onstart samples");
   Serial.print(" - "); Serial.println(my_header);
   for (int i = 0; i < onstart_samples_16; i++) {
+    Watchdog.reset();
     datastring_start = rtc.now().timestamp() + "," + take_measurement();
     Serial.print(" - "); Serial.println(datastring_start);
     write_to_csv(my_header + ",comment", datastring_start + ", startup sample " + i, "/DATA.csv");
   }
+
+  Watchdog.disable();
   Serial.println("Awaiting delayed start ...");
 }
 
 void loop(void) {
 
   int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
+  DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
+  Watchdog.reset();
 
-  if(sample_batt_v() > lowPowerThresh) // Check battery to decide if should use low power mode
+  if (present_time.second() % blink_freq_s == 0) // BLINK INTERVAL, THEN DEEP SLEEP
+  {
+    blinky(1, 20, 200, 200);
+    Watchdog.reset();
+
+    if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0) // SAMPLE IF AT INTERVAL AND ON 0s
+    {
+      String sample = take_measurement();
+      String comment = "logging";
+      Watchdog.reset();
       
-  // HIGH POWER MODE ##########################################################################################################
-  { 
-    DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
-    Watchdog.reset();
+      if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0) { // SEND MESSAGE AT INTERVAL
 
-    if (present_time.second() % blink_freq_s == 0) // BLINK INTERVAL, THEN DEEP SLEEP
-    {
-      Serial.println("High power mode...");
-      blinky(1, 20, 200, 200);
-      Watchdog.reset();
-
-      if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0) // SAMPLE IF AT INTERVAL AND ON 0s
-      {
-        String sample = take_measurement();
-        String comment = "logging";
-        Watchdog.reset();
-        
-        if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0) { // SEND MESSAGE AT INTERVAL
-
-          Watchdog.reset(); // RESER BEFORE SAMPLE BECAUSE SOME SAMPLES CAN BE LONG (i.e. ANALITE WIPER)
-          String msg = prep_msg(present_time);
-          Watchdog.disable(); // STOP WATCHDOG FOR IRIDIUM TRANSMISSION
-          int irid_err = send_msg(msg);
-          Watchdog.enable(watchdog_timer);
-          comment = "iridium " + irid_err;
-        
+        Watchdog.reset(); // RESER BEFORE SAMPLE BECAUSE SOME SAMPLES CAN BE LONG (i.e. ANALITE WIPER)
+        String msg = prep_msg(present_time);
+        Watchdog.disable(); // STOP WATCHDOG FOR IRIDIUM TRANSMISSION
+        int irid_err = send_msg(msg);
+        Watchdog.enable(watchdog_timer);
+        comment = "iridium " + irid_err;  
         }
-
-        write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample + "," + comment, "/DATA.csv");// SAMPLE - WRITE TO CSV
-        Watchdog.reset();
-  
-      }
-
-      Watchdog.disable();
-      DateTime sample_end = rtc.now();
-      uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
-      LowPower.deepSleep(sleep_time);
+         
+      write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample + "," + comment, "/DATA.csv");// SAMPLE - WRITE TO CSV
+      Watchdog.reset();  
     }
-  }else{
-          
-  // LOW POWER MODE ##########################################################################################################
-  // IMPOSES 30s blinks, 1hr sample, 12 hr irid ##############################################################################
-
-  { 
-    DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
-    Watchdog.reset();
-
-    if (present_time.second() % 30 == 0) // BLINK INTERVAL, THEN DEEP SLEEP
-    {
-      Serial.println("Low power mode...");
-      blinky(1, 20, 200, 200);
-      Watchdog.reset();
-
-      if (present_time.minute() == 0 & present_time.second() == 0) // SAMPLE IF AT INTERVAL AND ON 0s
-      {
-        String sample = take_measurement();
-        String comment = "lowpower";
-        Watchdog.reset();
-        
-        if (present_time.minute() == 0 & present_time.hour() % 12 == 0) { // SEND MESSAGE AT INTERVAL
-
-          Watchdog.reset(); // RESER BEFORE SAMPLE BECAUSE SOME SAMPLES CAN BE LONG (i.e. ANALITE WIPER)
-          String msg = prep_msg(present_time);
-          Watchdog.disable(); // STOP WATCHDOG FOR IRIDIUM TRANSMISSION
-          int irid_err = send_msg(msg);
-          Watchdog.enable(watchdog_timer);
-          comment = "iridium " + irid_err;
-        
-        }
-
-        write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample + "," + comment, "/DATA.csv");// SAMPLE - WRITE TO CSV
-        Watchdog.reset();
-  
-      }
-
-      Watchdog.disable();
-      DateTime sample_end = rtc.now();
-      uint32_t sleep_time = ((30 - (sample_end.second() % 30)) * 1000.0) - 1000;
-      LowPower.deepSleep(sleep_time);
+    
+    Watchdog.disable();
+    DateTime sample_end = rtc.now();
+    uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
+    LowPower.deepSleep(sleep_time);
     }
-  }
-  }
   
   Watchdog.disable();
   delay(500);
@@ -349,33 +302,23 @@ String sample_hydros_M() {
 
 String sample_analite_195() {
 
-  pinMode(SensorSetPin, OUTPUT); 
-  pinMode(SensorUnsetPin, OUTPUT); 
-  pinMode(WiperSetPin, OUTPUT);
-  pinMode(WiperUnsetPin, OUTPUT);
-
   analogReadResolution(12);
 
   float values[10];  //Array for storing sampled distances
 
   if (wiper_cnt >= 5) {  // Probe will wipe after 6 power cycles (1 hr at 10 min interval)
-    digitalWrite(WiperSetPin, HIGH);
-    delay(20);
-    digitalWrite(WiperSetPin, LOW);
-    delay(20);
-    delay(100);  // >50 ms burst of power activates the wiper's full rotation
-    digitalWrite(WiperUnsetPin, HIGH);
-    delay(20);
-    digitalWrite(WiperUnsetPin, LOW);
-    delay(20);
-    wiper_cnt = 0;  // Reset wiper count to zero
-    delay(10000);   // wait for full rotation (about 6 seconds)
+
+  digitalWrite(WiperSetPin, HIGH); delay(50); delay(100);
+  digitalWrite(WiperSetPin, LOW); delay(50); 
+  digitalWrite(WiperUnsetPin, HIGH); delay(50); 
+  digitalWrite(WiperUnsetPin, LOW); delay(50); delay(8000);  // wait for full rotation (about 6 seconds)
+
+  wiper_cnt = 0;  // Reset wiper count to zero
+    
   } else {
     wiper_cnt++;
-    digitalWrite(WiperUnsetPin, HIGH);
-    delay(20);  // Unnecessary, but good to double check it's off
-    digitalWrite(WiperUnsetPin, LOW);
-    delay(20);
+    digitalWrite(WiperUnsetPin, HIGH); delay(20);  // Unnecessary, but good to double check it's off
+    digitalWrite(WiperUnsetPin, LOW); delay(20);
   }
 
   for (int i = 0; i < 10; i++) {
@@ -397,11 +340,7 @@ String sample_analite_195() {
 
 float sample_batt_v() {
   pinMode(vbatPin, INPUT);
-  float batt_v = analogRead(vbatPin);
-  batt_v *= 2;    // we divided by 2, so multiply back
-  batt_v *= 3.3;  // Multiply by 3.3V, our reference voltage
-  batt_v /= 1024; // convert to voltage
-  // float batt_v = (analogRead(vbatPin) * 2 * 3.3) / 1024;
+  float batt_v = (analogRead(vbatPin) * 2 * 3.3) / 1024;
   return batt_v;
 }
 
