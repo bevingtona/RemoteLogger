@@ -1,5 +1,10 @@
-Realtime DIY Hydrometric Data Logger with Arduino Feather M0
-================
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Realtime DIY Hydrometric Data Logger with Arduino Feather M0
 
 # Introduction
 
@@ -16,19 +21,19 @@ versatile and reliable solution for your hydrometric data logging needs.
 
 ## **Features**
 
-- Realtime measurement (Water level, water temperature, electrical
-  conductivity, turbidity, …)
+-   Realtime measurement (Water level, water temperature, electrical
+    conductivity, turbidity, ...)
 
-- Low power consumption and solar charging for extended operation
+-   Low power consumption and solar charging for extended operation
 
-- Customizable data logging intervals
+-   Customizable data logging intervals
 
-- Data transmission capabilities for remote monitoring (satellite and
-  cellular)
+-   Data transmission capabilities for remote monitoring (satellite and
+    cellular)
 
-- Easily expandable for additional sensors (e.g., temperature, pH)
+-   Easily expandable for additional sensors (e.g., temperature, pH)
 
-- Open-source and relatively low-cost
+-   Open-source and relatively low-cost
 
 # Wiring Diagrams
 
@@ -48,33 +53,41 @@ versatile and reliable solution for your hydrometric data logging needs.
 
 4.  Assemble using wiring diagram
 
-- RockBlock 9603: Two LEDs to indicate power status. The Red LED indicates the presence of a DC power supply. The Green LED indicates that the super capacitor has sufficient charge to switch on the Iridium module, and successfully transmit. If the Green LED is flashing, this can indicate the modem is drawing too much current from the supply. Try connecting the unit to another supply ie a USB power supply instead of a computer. If it is still flashing, this can indicate a faulty modem or cable.
-[Wiring](https://docs.rockblock.rock7.com/docs/connectors)
-External Patch antenna J3 connector [See here](https://docs.rockblock.rock7.com/docs/switching-rockblock-9603-antenna-mode) 
-// #define ISBD_SUCCESS             0
-// #define ISBD_ALREADY_AWAKE       1
-// #define ISBD_SERIAL_FAILURE      2
-// #define ISBD_PROTOCOL_ERROR      3
-// #define ISBD_CANCELLED           4
-// #define ISBD_NO_MODEM_DETECTED   5
-// #define ISBD_SBDIX_FATAL_ERROR   6
-// #define ISBD_SENDRECEIVE_TIMEOUT 7
-// #define ISBD_RX_OVERFLOW         8
-// #define ISBD_REENTRANT           9
-// #define ISBD_IS_ASLEEP           10
-// #define ISBD_NO_SLEEP_PIN        11
+-   RockBlock 9603: Two LEDs to indicate power status. The Red LED
+    indicates the presence of a DC power supply. The Green LED indicates
+    that the super capacitor has sufficient charge to switch on the
+    Iridium module, and successfully transmit. If the Green LED is
+    flashing, this can indicate the modem is drawing too much current
+    from the supply. Try connecting the unit to another supply ie a USB
+    power supply instead of a computer. If it is still flashing, this
+    can indicate a faulty modem or cable.
+    [Wiring](https://docs.rockblock.rock7.com/docs/connectors) External
+    Patch antenna J3 connector [See
+    here](https://docs.rockblock.rock7.com/docs/switching-rockblock-9603-antenna-mode)
+    // #define ISBD_SUCCESS             0 // #define
+    ISBD_ALREADY_AWAKE       1 // #define ISBD_SERIAL_FAILURE      2 //
+    #define ISBD_PROTOCOL_ERROR      3 // #define
+    ISBD_CANCELLED           4 // #define ISBD_NO_MODEM_DETECTED   5 //
+    #define ISBD_SBDIX_FATAL_ERROR   6 // #define
+    ISBD_SENDRECEIVE_TIMEOUT 7 // #define ISBD_RX_OVERFLOW         8 //
+    #define ISBD_REENTRANT           9 // #define
+    ISBD_IS_ASLEEP           10 // #define ISBD_NO_SLEEP_PIN        11
 
-- Charge controller: Cut 'therm' trace if thermistor is connected, cut 1.0A trace and solder 1.5A trace for faster charging, test charge rate by connecting multimeter (10A to OUT, COM to GRD) and set multimeter to 200mA, should read 1.5A ([Data sheet](https://cdn-learn.adafruit.com/downloads/pdf/adafruit-bq24074-universal-usb-dc-solar-charger-breakout.pdf))
-   
-6. Testing
+-   Charge controller: Cut 'therm' trace if thermistor is connected, cut
+    1.0A trace and solder 1.5A trace for faster charging, test charge
+    rate by connecting multimeter (10A to OUT, COM to GRD) and set
+    multimeter to 200mA, should read 1.5A ([Data
+    sheet](https://cdn-learn.adafruit.com/downloads/pdf/adafruit-bq24074-universal-usb-dc-solar-charger-breakout.pdf))
 
-8.  Register modem
+6.  Testing
 
-9.  Charge battery
+7.  Register modem
 
-10.  Load code
+8.  Charge battery
 
-11.  Bench test
+9.  Load code
+
+10. Bench test
 
 # Code
 
@@ -129,11 +142,9 @@ External Patch antenna J3 connector [See here](https://docs.rockblock.rock7.com/
 
         4.  Sync clock every 5 days at noon
 
+# Tools
 
-# Tools 
-
-  1. RockBlock switch SMA and Patch Antenna = 1.5 mm allen key
-
+1.  RockBlock switch SMA and Patch Antenna = 1.5 mm allen key
 
 # **Materials**
 
@@ -143,7 +154,7 @@ materials:
 ## Data Logger with Telemetry
 
 |                                                                  | <sup><sub>**Approx \$ CAD**</sub></sup> | <sup><sub>**Water level**</sub></sup> | <sup><sub>**Water level + Analite**</sub></sup> | <sup><sub>Ultrasonic</sub></sup> | <sup><sub>Temp. only</sub></sup> | <sup><sub>Source</sub></sup>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-|------------------------------------------------------------------|:---------------------------------------:|:-------------------------------------:|:-----------------------------------------------:|:--------------------------------:|:--------------------------------:|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|--------|:------:|:------:|:------:|:------:|:------:|------------------------|
 | <sup><sub>**Data logger**</sub></sup>                            |                                         |                                       |                                                 |                                  |                                  |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | <sup><sub>Feather M0</sub></sup>                                 |       <sup><sub>27.96</sub></sup>       |        <sup><sub>1</sub></sup>        |             <sup><sub>1</sub></sup>             |     <sup><sub>1</sub></sup>      |     <sup><sub>1</sub></sup>      | <sup><sub>[Digikey](https://www.digikey.ca/en/products/detail/adafruit-industries-llc/2796/5804105)</sub></sup>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | <sup><sub>Featherwing</sub></sup>                                |       <sup><sub>20.95</sub></sup>       |        <sup><sub>1</sub></sup>        |             <sup><sub>1</sub></sup>             |     <sup><sub>1</sub></sup>      |     <sup><sub>1</sub></sup>      | <sup><sub>[Digikey](https://www.digikey.ca/en/products/detail/adafruit-industries-llc/2926/5959339)</sub></sup>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -208,14 +219,12 @@ materials:
 
 2.  **Hydrometric** (Non-contact)
 
-    1.  [XL-MaxSonar® - WR/WRC MB7052 7m](https://www.digikey.ca/en/products/detail/maxbotix-inc/MB7052-100/7896790)
+    1.  [XL-MaxSonar® - WR/WRC MB7052
+        7m](https://www.digikey.ca/en/products/detail/maxbotix-inc/MB7052-100/7896790)
         (\~170\$CAD) Water level
-    2.  [HRXL-MaxSonar-WR MB7368 10m](https://www.digikey.ca/en/products/detail/maxbotix-inc/MB7368-100/10279126) (\~206.08\$CAD) Water level
-
-
-        
-
-        
+    2.  [HRXL-MaxSonar-WR MB7368
+        10m](https://www.digikey.ca/en/products/detail/maxbotix-inc/MB7368-100/10279126)
+        (\~206.08\$CAD) Water level
 
 3.  **Climate** (Temp/RH/Snow)
 
@@ -236,17 +245,49 @@ materials:
 
 # How-To Guide
 
-- Reset unit
+-   Reset unit
 
-- Download data
+-   Download data
 
-- Change parameters
+-   Change parameters
 
-- Upload code
+-   Upload code
 
-- Measure battery voltage
+-   Measure battery voltage
 
-- Check if sending
+-   Check if sending
+
+-   Estimate battery life
+
+    -   Connect a multimeter in serial to the JST power cable in (need
+        to cut it and add aligator clips on positive lead). Change
+        multimeter to A. Change red terminal to A, and black to COM.
+
+    -   On the hydros-21 setup, we measured: sleep as 30 milliamps,
+        measurements as 90 milliamps, and iridium transmissions as 245
+        milliamps.
+
+        ```{r}
+        sleep <- 30
+        msmt <- 90
+        irid <- 245
+
+        Load_current_avgH = 
+          (
+            (irid * (5/60) * 12) + # 5 min, 12 times per day
+            (msmt * (1/60)/4 * 24 * 6) + # 25 seconds every 10 min
+            (sleep * (58/60) * 24) # roughly 58 minutes per hour
+          )/24 # Average hourly
+
+        # Battery capacity in milliamphours
+        mAmp_hour_rating = 10000 
+
+        # Hours_running
+        mAmp_hour_rating / Load_current_avgH #= 241 hours
+
+        # Days_running
+        mAmp_hour_rating / Load_current_avgH / 24 #= 10 days
+        ```
 
 # Extra ..
 
