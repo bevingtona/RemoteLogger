@@ -1,5 +1,3 @@
-// Add string concatenation 
-
 /*Include the libraries we need*/
 #include <time.h>
 #include "RTClib.h"           //Needed for communication with Real Time Clock
@@ -19,8 +17,8 @@ const byte SensorSetPin = 5;    //Power relay set pin to HYDROS21
 const byte SensorUnsetPin = 6;  //Power relay unset pin to HYDROS21
 const byte led = 8;             // Built in led pin
 const byte vbatPin = 9;         // Batt pin
-const byte IridPwrPin = 10;     // Power base PN2222 transistor pin to Iridium modem
 const byte dataPin = 12;        // The pin of the SDI-12 data bus
+const byte IridPwrPin = 13;     // Power base PN2222 transistor pin to Iridium modem
 
 /*Define global vars */
 String my_letter = "ABC";
@@ -70,7 +68,11 @@ String take_measurement() {
   water_temp_c = hydrosString.substring(delimeter_1+1, delimeter_2).toFloat();
   water_ec_dcm = round(hydrosString.substring(delimeter_2+1, hydrosString.length()).toFloat());
   
-  String msmt = String(sample_batt_v()) + "," + freeMemory() + "," + water_level_mm + "," + water_temp_c + "," + water_ec_dcm;
+  String msmt = String(sample_batt_v()) + "," + 
+    freeMemory() + "," + 
+    water_level_mm + "," + 
+    water_temp_c + "," + 
+    water_ec_dcm;
 
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
@@ -107,7 +109,7 @@ void setup(void) {
   }
   
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
-  pinMode(led, OUTPUT); digitalWrite(led, LOW); delay(50);
+  pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
   
   pinMode(dataPin, INPUT); 
 
@@ -143,76 +145,72 @@ void setup(void) {
   Serial.print(" - onstart_samples_16: "); Serial.println(onstart_samples_16);
 
   // CHECK SENSORS
-  Serial.println("check sensors");
-  take_measurement();
-  String datastring_start = rtc.now().timestamp() + "," + take_measurement();
-  Serial.print(" - "); Serial.println(datastring_start);
-  Serial.print(" - "); Serial.println(prep_msg(rtc.now()));
-  write_to_csv(my_header + ",comment", datastring_start + ",startup", "/DATA.csv");
-
-  // SAMPLE ON STARTUP - SEND MESSAGE
-  if (onstart_irid_string == "T") {
-    Serial.println("check irid");
-    irid_test(datastring_start);
-  };
+  // Serial.println("check sensors");
+  // take_measurement();
+  // String datastring_start = rtc.now().timestamp() + "," + take_measurement();
+  // Serial.print(" - "); Serial.println(datastring_start);
+  // Serial.print(" - "); Serial.println(prep_msg(rtc.now()));
+  // write_to_csv(my_header + ",comment", datastring_start + ",startup", "/DATA.csv");
 
   // ONSTART SAMPLES
   Serial.println("check onstart samples");
   Serial.print(" - "); Serial.println(my_header);
   for (int i = 0; i < onstart_samples_16; i++) {
-    datastring_start = rtc.now().timestamp() + "," + take_measurement();
+    String datastring_start = rtc.now().timestamp() + "," + take_measurement();
     Serial.print(" - "); Serial.println(datastring_start);
     write_to_csv(my_header + ",comment", datastring_start + ", startup sample " + i, "/DATA.csv");
   }
+
+  // SAMPLE ON STARTUP - SEND MESSAGE
+  if (onstart_irid_string == "T") {
+    String datastring_start = rtc.now().timestamp() + "," + take_measurement();
+    Serial.println("check irid");
+    irid_test(datastring_start);
+  };
+
   Serial.println("Awaiting delayed start ...");
+
+  int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
+
 }
 
 void loop(void) {
-
-  int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
+  
   DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
-  Watchdog.reset();
-
-  if (present_time.second() % blink_freq_s == 0) // BLINK INTERVAL, THEN DEEP SLEEP
+  
+  if (present_time.second() % 10 == 0) // BLINK INTERVAL, THEN DEEP SLEEP
   {
-    blinky(1, 20, 200, 200);
-    Watchdog.reset();
 
+    blinky(1, 20, 200, 200);
+    
     if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0) // SAMPLE IF AT INTERVAL AND ON 0s
     {
+      
       String sample = take_measurement();
-      String comment = "logging";
       Watchdog.reset();
       
       if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0) { // SEND MESSAGE AT INTERVAL
 
-        Watchdog.reset(); // RESER BEFORE SAMPLE BECAUSE SOME SAMPLES CAN BE LONG (i.e. ANALITE WIPER)
         String msg = prep_msg(present_time);
-        Watchdog.disable(); // STOP WATCHDOG FOR IRIDIUM TRANSMISSION
         int irid_err = send_msg(msg);
-        Watchdog.enable(watchdog_timer);
-        comment = "iridium " + irid_err;  
         }
          
-      write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample + "," + comment, "/DATA.csv");// SAMPLE - WRITE TO CSV
-      Watchdog.reset();  
+      write_to_csv(my_header, present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
+      Watchdog.reset(); 
+
+      Watchdog.disable();
+      Watchdog.enable(1000);
+      delay(1500); // TRIGGER WATCHDOG
+
     }
     
-    Watchdog.disable();
-
-    for(int i=5; i<=14; i++) {
-      pinMode(i, OUTPUT);
-      digitalWrite(i, LOW);
-    }
-
     DateTime sample_end = rtc.now();
     uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
-    Serial.println(sleep_time);
     LowPower.sleep(sleep_time);
     }
   
-  Watchdog.disable();
-  delay(500);
+  Watchdog.reset();
+  delay(500); // Half second to make sure we do not skip a second
 }
 
 void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
@@ -308,58 +306,54 @@ void write_to_csv(String header, String datastring_for_csv, String outname) {
 
 int send_msg(String my_msg) {
 
-  write_to_csv("log", rtc.now().timestamp() + " startup", "iridlog.txt");
-
   digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
   delay(2000);
 
   IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
 
+  Watchdog.disable();
+  // Serial.print(" begin");
   int err = modem.begin();
+  Watchdog.enable(watchdog_timer);
 
   if (err == ISBD_IS_ASLEEP) {
-    write_to_csv("log", rtc.now().timestamp() + " wake up " + err, "iridlog.txt");
-    modem.begin();
-  }
-
-  write_to_csv("log", rtc.now().timestamp() + " begin " + err, "iridlog.txt");
-  // Serial.println(("begin");
-
-  if (err == 10) {
+    Watchdog.disable();
+    // Serial.print(" wake");
     err = modem.begin();
-    write_to_csv("log", rtc.now().timestamp() + " begin retry " + err, "iridlog.txt");
-    // Serial.println(("retry");
+    Watchdog.enable(watchdog_timer);
   }
 
+  Watchdog.disable();
+  // modem.adjustSendReceiveTimeout(300);
+  // Serial.print(" send");
   err = modem.sendSBDText(my_msg.c_str());
-  // Serial.println(("sent");
-  write_to_csv("log", rtc.now().timestamp() + " sent " + err, "iridlog.txt");
-  // Serial.println((err);
-
-  if (err != ISBD_SUCCESS && err != 13) {
+  Watchdog.enable(watchdog_timer);
+  
+  if (err != ISBD_SUCCESS){ //} && err != 13) {
+    Watchdog.disable();
+    // Serial.print(" retry");
     err = modem.begin();
-    write_to_csv("log", rtc.now().timestamp() + " begin2 " + err, "iridlog.txt");
-    // Serial.println(("begin 2");
-
-    modem.adjustSendReceiveTimeout(500);
+    Watchdog.enable(watchdog_timer);
+    // modem.adjustSendReceiveTimeout(300);
+    // Serial.print(" send");
+    Watchdog.disable();
     err = modem.sendSBDText(my_msg.c_str());
-    write_to_csv("log", rtc.now().timestamp() + " sent2 " + err, "iridlog.txt");
-    // Serial.println(("sent 2");
-  }
+    Watchdog.enable(watchdog_timer);
+    }
 
-  if (rtc.now().day() % 2 == 0 & rtc.now().hour() == 12) {
+  // Serial.print(" time");
     struct tm t;
     int err_time = modem.getSystemTime(t);
     if (err_time == ISBD_SUCCESS) {
       String pre_time = rtc.now().timestamp();
+      // Serial.print(pre_time);
+      // Serial.print(" ");
       rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
       String post_time = rtc.now().timestamp();
-      write_to_csv("pre_sync,post_sync,err_time", pre_time + "," + post_time + "," + err_time, "/IRID.csv");
-      // Serial.println(("sync clock");
+      // Serial.print(post_time);
     }
-  }
-
+  
   digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
   return err;
 }
