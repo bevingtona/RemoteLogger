@@ -70,6 +70,8 @@ QuickStats stats;                 // Instance of QuickStats
 
 String take_measurement() {
 
+  Watchdog.disable();
+
   digitalWrite(SensorSetPin, HIGH); delay(50);
   digitalWrite(SensorSetPin, LOW); delay(1000);
 
@@ -87,6 +89,8 @@ String take_measurement() {
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
 
+  int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
+
   return msmt;
 
 }
@@ -98,10 +102,10 @@ String prep_msg(DateTime present_time) {
     present_time.timestamp().substring(5, 7) + 
     present_time.timestamp().substring(8, 10) + 
     present_time.timestamp().substring(11, 13) + ":" + 
-    sample_batt_v() + "," + 
-    freeMemory() + "," + 
+    String(round(sample_batt_v()*100)) + "," + 
+    round(freeMemory()/100) + "," + 
     round(water_level_mm) + "," + 
-    water_temp_c + "," + 
+    round(water_temp_c*10) + "," + 
     round(water_ec_dcm) + "," + 
     round(water_ntu) + ":";
   
@@ -195,6 +199,8 @@ void setup(void) {
 }
 
 void loop(void) {
+  
+  blinky(1, 20, 200, 200);
 
   int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
   DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
@@ -227,7 +233,7 @@ void loop(void) {
     
     Watchdog.disable();
     DateTime sample_end = rtc.now();
-    uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
+    uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1500;
     LowPower.sleep(sleep_time);
     }
   

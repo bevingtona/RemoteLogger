@@ -27,8 +27,8 @@ void setup()
   int signalQuality = -1;
   int err;
   
-  pinMode(11, OUTPUT);
-  digitalWrite(11,HIGH);
+  pinMode(13, OUTPUT);
+  digitalWrite(13,HIGH);
 
   // Start the console serial port
   Serial.begin(115200);
@@ -80,7 +80,7 @@ void setup()
     Serial.print(signalQuality);
     Serial.println(".");
     n = n + 1;  
-    delay(1000);
+    delay(100);
   }
 
   // Send the message

@@ -1,16 +1,14 @@
-// Add string concatenation 
-
 /*Include the libraries we need*/
 #include <time.h>
-#include "RTClib.h"           //Needed for communication with Real Time Clock
-#include <SPI.h>              //Needed for working with SD card
-#include <SD.h>               //Needed for working with SD card
-#include <ArduinoLowPower.h>  //Needed for putting Feather M0 to sleep between samples
-#include <IridiumSBD.h>       //Needed for communication with IRIDIUM modem
-#include <CSV_Parser.h>       //Needed for parsing CSV data
-#include <SDI12.h>            //Needed for SDI-12 communication
-#include <QuickStats.h>       // Stats
-#include <MemoryFree.h>
+#include <RTClib.h>             //Needed for communication with Real Time Clock
+#include <SPI.h>                //Needed for working with SD card
+#include <SD.h>                 //Needed for working with SD card
+#include <ArduinoLowPower.h>    //Needed for putting Feather M0 to sleep between samples
+#include <IridiumSBD.h>         //Needed for communication with IRIDIUM modem
+#include <CSV_Parser.h>         //Needed for parsing CSV data
+#include <SDI12.h>              //Needed for SDI-12 communication
+#include <QuickStats.h>         // Stats
+#include <MemoryFree.h>         // https://github.com/mpflaga/Arduino-MemoryFree
 #include <Adafruit_SleepyDog.h>
 
 /*Define global constants*/
@@ -23,8 +21,8 @@ const byte dataPin = 12;        // The pin of the SDI-12 data bus
 const byte IridPwrPin = 13;     // Power base PN2222 transistor pin to Iridium modem
 
 /*Define global vars */
-String my_letter = "ABC";
-String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
+String my_letter = "AB";
+String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,ott_status,ott_rh,ott_dew,ott_deg";
 int16_t *sample_freq_m;
 uint16_t sample_freq_m_16;
 int16_t *irid_freq_h;
@@ -33,13 +31,15 @@ char **onstart_irid;
 String onstart_irid_string;
 int16_t *onstart_samples;
 uint16_t onstart_samples_16;
-uint16_t blink_freq_s = 10;
-uint16_t watchdog_timer = 30000;
+
+int blink_freq_s = 10;
+int watchdog_timer = 30000;
+
 int delimiter_1;
 int delimiter_2;
-float water_level_mm;
-float water_temp_c;
-float water_ec_dcm;
+double water_level_mm = -8.0;
+double water_temp_c = -8.0;
+double ott_status = -8.0;
 
 String myCommand = "";    // SDI-12 command var
 String sdiResponse = "";  // SDI-12 responce var
@@ -62,24 +62,26 @@ String take_measurement() {
   digitalWrite(SensorSetPin, HIGH); delay(50);
   digitalWrite(SensorSetPin, LOW); delay(1000);
 
-  // IF HYDROS
-  String hydrosString = sample_hydros_M();
-  int delimeter_1 = hydrosString.indexOf(",");
-  int delimeter_2 = hydrosString.indexOf(",", delimeter_1 + 1);
-  water_level_mm = hydrosString.substring(0, delimeter_1).toFloat();
-  water_temp_c = hydrosString.substring(delimeter_1+1, delimeter_2).toFloat();
-  water_ec_dcm = round(hydrosString.substring(delimeter_2+1, hydrosString.length()).toFloat());
-  
+  // IF OTT + ANALITE
+  String ottString = sample_ott_M();
+  int delimeter_1 = ottString.indexOf(",");
+  int delimeter_2 = ottString.indexOf(",", delimeter_1 + 1);
+  water_level_mm = round(ottString.substring(0, delimeter_1).toDouble()*1000);
+  water_temp_c = ottString.substring(delimeter_1+1, delimeter_2).toDouble();
+  ott_status = round(ottString.substring(delimeter_2+1, ottString.length()).toDouble());
+
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," + 
     water_level_mm + "," + 
     water_temp_c + "," + 
-    water_ec_dcm;
+    ott_status + "," + 
+    sample_ott_V();
 
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
 
   return msmt;
+
 }
 
 String prep_msg(DateTime present_time) {
@@ -92,8 +94,7 @@ String prep_msg(DateTime present_time) {
     String(round(sample_batt_v()*100)) + "," + 
     round(freeMemory()/100) + "," + 
     round(water_level_mm) + "," + 
-    round(water_temp_c*10) + "," + 
-    round(water_ec_dcm) + ":";
+    round(water_temp_c*10) + ":"; 
   
   return out;
 }
@@ -111,7 +112,7 @@ void setup(void) {
   }
   
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
-  pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
+  pinMode(led, OUTPUT); digitalWrite(led, LOW); delay(50);
   
   pinMode(dataPin, INPUT); 
 
@@ -147,74 +148,80 @@ void setup(void) {
   Serial.print(" - onstart_samples_16: "); Serial.println(onstart_samples_16);
 
   // CHECK SENSORS
-  // Serial.println("check sensors");
-  // take_measurement();
-  // String datastring_start = rtc.now().timestamp() + "," + take_measurement();
-  // Serial.print(" - "); Serial.println(datastring_start);
-  // Serial.print(" - "); Serial.println(prep_msg(rtc.now()));
-  // write_to_csv(my_header + ",comment", datastring_start + ",startup", "/DATA.csv");
+  Serial.println("check sensors");
+  take_measurement();
+  String datastring_start = rtc.now().timestamp() + "," + take_measurement();
+  Serial.print(" - "); Serial.println(datastring_start);
+  Serial.print(" - "); Serial.println(prep_msg(rtc.now()));
+  write_to_csv(my_header + ",comment", datastring_start + ",startup", "/DATA.csv");
 
   // ONSTART SAMPLES
   Serial.println("check onstart samples");
   Serial.print(" - "); Serial.println(my_header);
   for (int i = 0; i < onstart_samples_16; i++) {
-    String datastring_start = rtc.now().timestamp() + "," + take_measurement();
+    datastring_start = rtc.now().timestamp() + "," + take_measurement();
     Serial.print(" - "); Serial.println(datastring_start);
     write_to_csv(my_header + ",comment", datastring_start + ", startup sample " + i, "/DATA.csv");
   }
-
+  
   // SAMPLE ON STARTUP - SEND MESSAGE
   if (onstart_irid_string == "T") {
-    String datastring_start = rtc.now().timestamp() + "," + take_measurement();
     Serial.println("check irid");
     irid_test(datastring_start);
   };
 
   Serial.println("Awaiting delayed start ...");
-
-  int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
-
 }
 
 void loop(void) {
   
-  DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
-  
-  if (present_time.second() % 10 == 0) // BLINK INTERVAL, THEN DEEP SLEEP
-  {
+  blinky(1, 20, 200, 200);
 
+  int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
+  DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
+  // Serial.println(present_time.timestamp()); 
+  Watchdog.reset();
+
+  if (present_time.second() % blink_freq_s == 0) // BLINK INTERVAL, THEN DEEP SLEEP
+  {
     blinky(1, 20, 200, 200);
-    
+    Watchdog.reset();
+
     if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0) // SAMPLE IF AT INTERVAL AND ON 0s
     {
-      
       String sample = take_measurement();
+      String comment = "logging";
       Watchdog.reset();
       
       if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0) { // SEND MESSAGE AT INTERVAL
 
+        Watchdog.reset(); // RESER BEFORE SAMPLE BECAUSE SOME SAMPLES CAN BE LONG (i.e. ANALITE WIPER)
         String msg = prep_msg(present_time);
+        Watchdog.disable(); // STOP WATCHDOG FOR IRIDIUM TRANSMISSION
         int irid_err = send_msg(msg);
+        Watchdog.enable(watchdog_timer);
+        comment = "iridium " + irid_err;  
         }
          
-      write_to_csv(my_header, present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
-      Watchdog.reset(); 
-
-      Watchdog.disable();
-      Watchdog.enable(1000);
-      delay(1500); // TRIGGER WATCHDOG
-
+      write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample + "," + comment, "/DATA.csv");// SAMPLE - WRITE TO CSV
+      Watchdog.reset();  
     }
     
+    Watchdog.disable();
+    // Serial.print(present_time.timestamp()); 
     DateTime sample_end = rtc.now();
-    uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
+    // Serial.print(" ");
+    // Serial.print(sample_end.timestamp());
+    uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1500;
+    // Serial.print(" ");
+    // Serial.println(sleep_time);
+    // delay(sleep_time);
     LowPower.sleep(sleep_time);
     }
   
-  Watchdog.reset();
-  delay(500); // Half second to make sure we do not skip a second
+  Watchdog.disable();
+  delay(500);
 }
-
 void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
   for (int i = 1; i <= n; i++) {
     digitalWrite(led, HIGH);
@@ -225,9 +232,9 @@ void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
   delay(btw_ms);
 }
 
-String sample_hydros_M() {
+String sample_ott_M(){
 
-  myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
+  myCommand = String(SENSOR_ADDRESS) + "M!";// first command to take a measurement
 
   mySDI12.sendCommand(myCommand);
   delay(30);  // wait a while for a response
@@ -247,6 +254,7 @@ String sample_hydros_M() {
   delay(2000);       // delay between taking reading and requesting data
   sdiResponse = "";  // clear the response string
 
+
   // next command to request data from last measurement
   myCommand = String(SENSOR_ADDRESS) + "D0!";
 
@@ -261,20 +269,89 @@ String sample_hydros_M() {
     }
   }
 
+  //subset responce
   sdiResponse = sdiResponse.substring(3);
 
-  for (int i = 0; i < sdiResponse.length(); i++) {
+  for (int i = 0; i < sdiResponse.length(); i++)
+  {
+
     char c = sdiResponse.charAt(i);
-    if (c == '+') {
+
+    if (c == '+')
+    {
       sdiResponse.setCharAt(i, ',');
     }
+
   }
 
   //clear buffer
   if (sdiResponse.length() > 1)
     mySDI12.clearBuffer();
 
-  if (sdiResponse == "")
+  if(sdiResponse == "")
+    sdiResponse = "-9,-9,-9";
+    
+  return sdiResponse;
+}
+
+String sample_ott_V(){
+
+  myCommand = String(SENSOR_ADDRESS) + "V!";// first command to take a measurement
+
+  mySDI12.sendCommand(myCommand);
+  delay(30);  // wait a while for a response
+
+  while (mySDI12.available()) {  // build response string
+    char c = mySDI12.read();
+    if ((c != '\n') && (c != '\r')) {
+      sdiResponse += c;
+      delay(10);  // 1 character ~ 7.5ms
+    }
+  }
+
+  /*Clear buffer*/
+  if (sdiResponse.length() > 1)
+    mySDI12.clearBuffer();
+
+  delay(2000);       // delay between taking reading and requesting data
+  sdiResponse = "";  // clear the response string
+
+
+  // next command to request data from last measurement
+  myCommand = String(SENSOR_ADDRESS) + "D0!";
+
+  mySDI12.sendCommand(myCommand);
+  delay(30);  // wait a while for a response
+
+  while (mySDI12.available()) {  // build string from response
+    char c = mySDI12.read();
+    if(c == '-'){c = (char) ',';}    
+    if ((c != '\n') && (c != '\r')) {
+      sdiResponse += c;
+      delay(10);  // 1 character ~ 7.5ms
+    }
+  }
+
+  //subset responce
+  sdiResponse = sdiResponse.substring(3);
+
+  for (int i = 0; i < sdiResponse.length(); i++)
+  {
+
+    char c = sdiResponse.charAt(i);
+
+    if (c == '+')
+    {
+      sdiResponse.setCharAt(i, ',');
+    }
+
+  }
+
+  //clear buffer
+  if (sdiResponse.length() > 1)
+    mySDI12.clearBuffer();
+    
+  if(sdiResponse == "")
     sdiResponse = "-9,-9,-9";
 
   return sdiResponse;
@@ -308,54 +385,59 @@ void write_to_csv(String header, String datastring_for_csv, String outname) {
 
 int send_msg(String my_msg) {
 
+  write_to_csv("log", rtc.now().timestamp() + " startup", "iridlog.txt");
+
+  pinMode(IridPwrPin, OUTPUT);  //Drive iridium power pin LOW
   digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
   delay(2000);
 
   IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
 
-  Watchdog.disable();
-  // Serial.print(" begin");
   int err = modem.begin();
-  Watchdog.enable(watchdog_timer);
 
   if (err == ISBD_IS_ASLEEP) {
-    Watchdog.disable();
-    // Serial.print(" wake");
-    err = modem.begin();
-    Watchdog.enable(watchdog_timer);
+    write_to_csv("log", rtc.now().timestamp() + " wake up " + err, "iridlog.txt");
+    modem.begin();
   }
 
-  Watchdog.disable();
-  // modem.adjustSendReceiveTimeout(300);
-  // Serial.print(" send");
-  err = modem.sendSBDText(my_msg.c_str());
-  Watchdog.enable(watchdog_timer);
-  
-  if (err != ISBD_SUCCESS){ //} && err != 13) {
-    Watchdog.disable();
-    // Serial.print(" retry");
-    err = modem.begin();
-    Watchdog.enable(watchdog_timer);
-    // modem.adjustSendReceiveTimeout(300);
-    // Serial.print(" send");
-    Watchdog.disable();
-    err = modem.sendSBDText(my_msg.c_str());
-    Watchdog.enable(watchdog_timer);
-    }
+  write_to_csv("log", rtc.now().timestamp() + " begin " + err, "iridlog.txt");
+  // Serial.println(("begin");
 
-  // Serial.print(" time");
+  if (err == 10) {
+    err = modem.begin();
+    write_to_csv("log", rtc.now().timestamp() + " begin retry " + err, "iridlog.txt");
+    // Serial.println(("retry");
+  }
+
+  err = modem.sendSBDText(my_msg.c_str());
+  // Serial.println(("sent");
+  write_to_csv("log", rtc.now().timestamp() + " sent " + err, "iridlog.txt");
+  // Serial.println((err);
+
+  if (err != ISBD_SUCCESS && err != 13) {
+    err = modem.begin();
+    write_to_csv("log", rtc.now().timestamp() + " begin2 " + err, "iridlog.txt");
+    // Serial.println(("begin 2");
+
+    modem.adjustSendReceiveTimeout(500);
+    err = modem.sendSBDText(my_msg.c_str());
+    write_to_csv("log", rtc.now().timestamp() + " sent2 " + err, "iridlog.txt");
+    // Serial.println(("sent 2");
+  }
+
+  if (rtc.now().day() % 2 == 0 & rtc.now().hour() == 12) {
     struct tm t;
     int err_time = modem.getSystemTime(t);
     if (err_time == ISBD_SUCCESS) {
       String pre_time = rtc.now().timestamp();
-      // Serial.print(pre_time);
-      // Serial.print(" ");
       rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
       String post_time = rtc.now().timestamp();
-      // Serial.print(post_time);
+      write_to_csv("pre_sync,post_sync,err_time", pre_time + "," + post_time + "," + err_time, "/IRID.csv");
+      // Serial.println(("sync clock");
     }
-  
+  }
+
   digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
   return err;
 }

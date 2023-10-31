@@ -216,7 +216,7 @@ void loop(void) {
     Watchdog.disable();
     DateTime sample_end = rtc.now();
     uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
-    LowPower.deepSleep(sleep_time);
+    LowPower.sleep(sleep_time);
     }
   
   Watchdog.disable();

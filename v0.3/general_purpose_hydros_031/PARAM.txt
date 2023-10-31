@@ -1,0 +1,2 @@
+sample_freq_m,irid_freq_h,test_mode,onstart_samples
+10,6,F,1

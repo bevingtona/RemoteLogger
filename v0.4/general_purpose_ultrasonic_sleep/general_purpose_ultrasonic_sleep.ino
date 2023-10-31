@@ -1,5 +1,3 @@
-// Add string concatenation 
-
 /*Include the libraries we need*/
 #include <time.h>
 #include "RTClib.h"           //Needed for communication with Real Time Clock
@@ -19,27 +17,24 @@ const byte SensorSetPin = 5;    //Power relay set pin to HYDROS21
 const byte SensorUnsetPin = 6;  //Power relay unset pin to HYDROS21
 const byte led = 8;             // Built in led pin
 const byte vbatPin = 9;         // Batt pin
-const byte dataPin = 12;        // The pin of the SDI-12 data bus
-const byte IridPwrPin = 13;     // Power base PN2222 transistor pin to Iridium modem
+const byte triggerPin = 10; //Range start / stop pin for MaxBotix MB7369 ultrasonic ranger
+const byte pulsePin = 12; //Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger
+const byte IridSlpPin = 13;     // Power base PN2222 transistor pin to Iridium modem
 
 /*Define global vars */
-String my_letter = "ABC";
-String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
+String my_letter = "A";
+String my_header = "datetime,batt_v,memory,water_level_mm";
 int16_t *sample_freq_m;
 uint16_t sample_freq_m_16;
 int16_t *irid_freq_h;
 uint16_t irid_freq_h_16;
-char **onstart_irid;
-String onstart_irid_string;
+char **test_mode;
+String test_mode_string;
 int16_t *onstart_samples;
 uint16_t onstart_samples_16;
+
 uint16_t blink_freq_s = 10;
 uint16_t watchdog_timer = 30000;
-int delimiter_1;
-int delimiter_2;
-float water_level_mm;
-float water_temp_c;
-float water_ec_dcm;
 
 String myCommand = "";    // SDI-12 command var
 String sdiResponse = "";  // SDI-12 responce var
@@ -53,8 +48,7 @@ String sdiResponse = "";  // SDI-12 responce var
 /*Create library instances*/
 RTC_PCF8523 rtc;                  // Setup a PCF8523 Real Time Clock instance (may have to change this to more precise DS3231)
 File dataFile;                    // Setup a log file instance
-IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
-SDI12 mySDI12(dataPin);           // Define the SDI-12 bus
+IridiumSBD modem(IridiumSerial, IridSlpPin);  // Declare the IridiumSBD object
 QuickStats stats;                 // Instance of QuickStats
 
 String take_measurement() {
@@ -62,59 +56,51 @@ String take_measurement() {
   digitalWrite(SensorSetPin, HIGH); delay(50);
   digitalWrite(SensorSetPin, LOW); delay(1000);
 
-  // IF HYDROS
-  String hydrosString = sample_hydros_M();
-  int delimeter_1 = hydrosString.indexOf(",");
-  int delimeter_2 = hydrosString.indexOf(",", delimeter_1 + 1);
-  water_level_mm = hydrosString.substring(0, delimeter_1).toFloat();
-  water_temp_c = hydrosString.substring(delimeter_1+1, delimeter_2).toFloat();
-  water_ec_dcm = round(hydrosString.substring(delimeter_2+1, hydrosString.length()).toFloat());
-  
   String msmt = String(sample_batt_v()) + "," + 
-    freeMemory() + "," + 
-    water_level_mm + "," + 
-    water_temp_c + "," + 
-    water_ec_dcm;
-
+    freeMemory() + "," +
+    sample_ultrasonic();
+  
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
 
   return msmt;
 }
 
-String prep_msg(DateTime present_time) {
-
-  String out = my_letter + ":" + 
-    present_time.timestamp().substring(2, 4) + 
-    present_time.timestamp().substring(5, 7) + 
-    present_time.timestamp().substring(8, 10) + 
-    present_time.timestamp().substring(11, 13) + ":" + 
-    String(round(sample_batt_v()*100)) + "," + 
-    round(freeMemory()/100) + "," + 
-    round(water_level_mm) + "," + 
-    round(water_temp_c*10) + "," + 
-    round(water_ec_dcm) + ":";
+String prep_msg(){
   
-  return out;
+  SD.begin(chipSelect);
+  CSV_Parser cp("sfff", true, ',');  // Set paramters for parsing the log file
+  cp.readSDfile("/HOURLY.csv");
+  int num_rows = cp.getRowsCount();  //Get # of rows
+    
+  char **out_datetimes = (char **)cp["datetime"];
+  float *out_mem = (float *)cp["memory"];
+  float *out_batt_v = (float *)cp["batt_v"];
+  float *out_water_level_mm = (float *)cp["water_level_mm"];
+  
+  String datastring_msg = 
+    my_letter + ":" +
+    String(out_datetimes[0]).substring(2, 4) + 
+    String(out_datetimes[0]).substring(5, 7) + 
+    String(out_datetimes[0]).substring(8, 10) + 
+    String(out_datetimes[0]).substring(11, 13) + ":" +
+    String(round(out_batt_v[num_rows-1] * 100)) + ":" +
+    String(round(out_mem[num_rows-1] / 100)) + ":";
+  
+  for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
+    datastring_msg = 
+      datastring_msg + 
+      String(round(out_water_level_mm[i])) + ':';              
+    }
+
+  return datastring_msg;
 }
 
 void setup(void) {
-  
-  delay(3000);
-  Serial.begin(9600);
-  Serial.println("###########################################");
-  Serial.println("starting");
-
-  for(int i=5; i<=14; i++) {
-    pinMode(i, OUTPUT);
-    digitalWrite(i, LOW);
-  }
-  
+    
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
   pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
   
-  pinMode(dataPin, INPUT); 
-
   pinMode(SensorSetPin, OUTPUT); 
   digitalWrite(SensorSetPin, HIGH); delay(50);
   digitalWrite(SensorSetPin, LOW); delay(50);
@@ -123,12 +109,8 @@ void setup(void) {
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
   
-  pinMode(IridPwrPin, OUTPUT);
-  digitalWrite(IridPwrPin, LOW); delay(50);
-
-  // START SDI-12 PROTOCOL
-  Serial.println(" - check sdi12");
-  mySDI12.begin();
+  pinMode(IridSlpPin, OUTPUT);
+  digitalWrite(IridSlpPin, LOW); delay(50);
 
   // CHECK RTC
   Serial.println(" - check clock");
@@ -140,34 +122,53 @@ void setup(void) {
 
   // READ PARAMS
   read_params();
-  Serial.println("check params");
-  Serial.print(" - sample_freq_m_16: "); Serial.println(sample_freq_m_16);
-  Serial.print(" - irid_freq_h_16: "); Serial.println(irid_freq_h_16);
-  Serial.print(" - onstart_irid_string: "); Serial.println(onstart_irid_string);
-  Serial.print(" - onstart_samples_16: "); Serial.println(onstart_samples_16);
 
-  // CHECK SENSORS
-  // Serial.println("check sensors");
-  // take_measurement();
-  // String datastring_start = rtc.now().timestamp() + "," + take_measurement();
-  // Serial.print(" - "); Serial.println(datastring_start);
-  // Serial.print(" - "); Serial.println(prep_msg(rtc.now()));
-  // write_to_csv(my_header + ",comment", datastring_start + ",startup", "/DATA.csv");
+  pinMode(SensorSetPin, OUTPUT); 
+  digitalWrite(SensorSetPin, HIGH); delay(50);
+  digitalWrite(SensorSetPin, LOW); delay(50);
 
-  // ONSTART SAMPLES
-  Serial.println("check onstart samples");
-  Serial.print(" - "); Serial.println(my_header);
-  for (int i = 0; i < onstart_samples_16; i++) {
+  if (test_mode_string == "T") {
+
+    SD.remove("/HOURLY.csv");
+
+    delay(3000);
+    Serial.begin(9600);
+    Serial.println("###########################################");
+    Serial.println("starting");
+
+    Serial.println("check params");
+    Serial.print(" - sample_freq_m_16: "); Serial.println(sample_freq_m_16);
+    Serial.print(" - irid_freq_h_16: "); Serial.println(irid_freq_h_16);
+    Serial.print(" - test_mode_string: "); Serial.println(test_mode_string);
+    Serial.print(" - onstart_samples_16: "); Serial.println(onstart_samples_16);
+
+    // CHECK SENSORS
+    Serial.println("check sensors");
     String datastring_start = rtc.now().timestamp() + "," + take_measurement();
     Serial.print(" - "); Serial.println(datastring_start);
-    write_to_csv(my_header + ",comment", datastring_start + ", startup sample " + i, "/DATA.csv");
-  }
+    write_to_csv(my_header + ",comment", datastring_start + ", startup", "/DATA.csv");
+    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    Serial.print(" - "); Serial.println(prep_msg());
 
-  // SAMPLE ON STARTUP - SEND MESSAGE
-  if (onstart_irid_string == "T") {
-    String datastring_start = rtc.now().timestamp() + "," + take_measurement();
+    // ONSTART SAMPLES
+    Serial.println("check onstart samples");
+    Serial.print(" - "); Serial.println(my_header);
+    for (int i = 0; i < onstart_samples_16; i++) {
+      String datastring_start = rtc.now().timestamp() + "," + take_measurement();
+      Serial.print(" - "); Serial.println(datastring_start);
+      write_to_csv(my_header + ",comment", datastring_start + ",startup sample " + i, "/DATA.csv");
+    }
+
+  
     Serial.println("check irid");
     irid_test(datastring_start);
+  
+    SD.remove("/HOURLY.csv");
+
   };
 
   Serial.println("Awaiting delayed start ...");
@@ -180,29 +181,34 @@ void loop(void) {
   
   DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
   
-  if (present_time.second() % 10 == 0) // BLINK INTERVAL, THEN DEEP SLEEP
-  {
-
+  // BLINK INTERVAL, THEN SLEEP
+  if (present_time.second() % 10 == 0){
     blinky(1, 20, 200, 200);
     
-    if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0) // SAMPLE IF AT INTERVAL AND ON 0s
-    {
-      
+    // TAKE A SAMPLE AT INTERVAL 
+    if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0){
       String sample = take_measurement();
       Watchdog.reset();
       
-      if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0) { // SEND MESSAGE AT INTERVAL
+      // SAVE TO HOURLY ON HOUR
+      if(present_time.minute() == 0){
+        write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
 
-        String msg = prep_msg(present_time);
-        int irid_err = send_msg(msg);
+        // SEND MESSAGE
+        if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0){ 
+          String msg = prep_msg();
+          Watchdog.disable();
+          int irid_err = send_msg(msg);
+          Watchdog.enable(watchdog_timer);
+          SD.remove("/HOURLY.csv");
+          Watchdog.reset();
         }
+      }
          
-      write_to_csv(my_header, present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
-      Watchdog.reset(); 
-
+      write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
       Watchdog.disable();
-      Watchdog.enable(1000);
-      delay(1500); // TRIGGER WATCHDOG
+      Watchdog.enable(100);
+      delay(200); // TRIGGER WATCHDOG
 
     }
     
@@ -225,59 +231,22 @@ void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
   delay(btw_ms);
 }
 
-String sample_hydros_M() {
+long sample_ultrasonic(){
 
-  myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
-
-  mySDI12.sendCommand(myCommand);
-  delay(30);  // wait a while for a response
-
-  while (mySDI12.available()) {  // build response string
-    char c = mySDI12.read();
-    if ((c != '\n') && (c != '\r')) {
-      sdiResponse += c;
-      delay(10);  // 1 character ~ 7.5ms
-    }
+  pinMode(triggerPin, OUTPUT);       //Set ultrasonic ranging trigger pin as OUTPUT
+  pinMode(pulsePin, INPUT);          //Set ultrasonic pulse width pin as INPUT
+  float values[10];          //Array for storing sampled distances
+  digitalWrite(triggerPin, HIGH);  //Write the ranging trigger pin HIGH
+  delay(30);    
+  for (int16_t i = 0; i < 10; i++)  //Take N samples
+  {
+    int32_t duration = pulseIn(pulsePin, HIGH);  //Get the pulse duration (i.e.,time of flight)
+    values[i] = duration;
+    delay(150);  //Dont sample too quickly < 7.5 Htz
   }
-
-  /*Clear buffer*/
-  if (sdiResponse.length() > 1)
-    mySDI12.clearBuffer();
-
-  delay(2000);       // delay between taking reading and requesting data
-  sdiResponse = "";  // clear the response string
-
-  // next command to request data from last measurement
-  myCommand = String(SENSOR_ADDRESS) + "D0!";
-
-  mySDI12.sendCommand(myCommand);
-  delay(30);  // wait a while for a response
-
-  while (mySDI12.available()) {  // build string from response
-    char c = mySDI12.read();
-    if ((c != '\n') && (c != '\r')) {
-      sdiResponse += c;
-      delay(10);  // 1 character ~ 7.5ms
-    }
-  }
-
-  sdiResponse = sdiResponse.substring(3);
-
-  for (int i = 0; i < sdiResponse.length(); i++) {
-    char c = sdiResponse.charAt(i);
-    if (c == '+') {
-      sdiResponse.setCharAt(i, ',');
-    }
-  }
-
-  //clear buffer
-  if (sdiResponse.length() > 1)
-    mySDI12.clearBuffer();
-
-  if (sdiResponse == "")
-    sdiResponse = "-9,-9,-9";
-
-  return sdiResponse;
+  long med_distance = stats.minimum(values, 10);  //Copute median distance
+  digitalWrite(triggerPin, LOW);  //Write the ranging trigger pin HIGH
+  return med_distance;
 }
 
 float sample_batt_v() {
@@ -287,7 +256,7 @@ float sample_batt_v() {
 }
 
 void write_to_csv(String header, String datastring_for_csv, String outname) {
-
+ 
   // IF FILE DOES NOT EXIST, WRITE HEADER AND DATA, ELSE, WITE DATA
   if (!SD.exists(outname))  //Write header if first time writing to the logfile
   {
@@ -308,63 +277,68 @@ void write_to_csv(String header, String datastring_for_csv, String outname) {
 
 int send_msg(String my_msg) {
 
-  digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
-  delay(2000);
+  write_to_csv("log", rtc.now().timestamp() + " startup", "iridlog.txt");
+
+  // digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
+  // delay(2000);
 
   IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
 
-  Watchdog.disable();
-  // Serial.print(" begin");
   int err = modem.begin();
-  Watchdog.enable(watchdog_timer);
 
   if (err == ISBD_IS_ASLEEP) {
-    Watchdog.disable();
-    // Serial.print(" wake");
-    err = modem.begin();
-    Watchdog.enable(watchdog_timer);
+    write_to_csv("log", rtc.now().timestamp() + " wake up " + err, "iridlog.txt");
+    modem.begin();
   }
 
-  Watchdog.disable();
-  // modem.adjustSendReceiveTimeout(300);
-  // Serial.print(" send");
-  err = modem.sendSBDText(my_msg.c_str());
-  Watchdog.enable(watchdog_timer);
-  
-  if (err != ISBD_SUCCESS){ //} && err != 13) {
-    Watchdog.disable();
-    // Serial.print(" retry");
-    err = modem.begin();
-    Watchdog.enable(watchdog_timer);
-    // modem.adjustSendReceiveTimeout(300);
-    // Serial.print(" send");
-    Watchdog.disable();
-    err = modem.sendSBDText(my_msg.c_str());
-    Watchdog.enable(watchdog_timer);
-    }
+  write_to_csv("log", rtc.now().timestamp() + " begin " + err, "iridlog.txt");
+  // Serial.println(("begin");
 
-  // Serial.print(" time");
+  if (err == 10) {
+    err = modem.begin();
+    write_to_csv("log", rtc.now().timestamp() + " begin retry " + err, "iridlog.txt");
+    // Serial.println(("retry");
+  }
+
+  err = modem.sendSBDText(my_msg.c_str());
+  // Serial.println(("sent");
+  write_to_csv("log", rtc.now().timestamp() + " sent " + err, "iridlog.txt");
+  // Serial.println((err);
+
+  if (err != ISBD_SUCCESS && err != 13) {
+    err = modem.begin();
+    write_to_csv("log", rtc.now().timestamp() + " begin2 " + err, "iridlog.txt");
+    // Serial.println(("begin 2");
+
+    modem.adjustSendReceiveTimeout(500);
+    err = modem.sendSBDText(my_msg.c_str());
+    write_to_csv("log", rtc.now().timestamp() + " sent2 " + err, "iridlog.txt");
+    // Serial.println(("sent 2");
+  }
+
+  if (rtc.now().day() % 2 == 0 & rtc.now().hour() == 12) {
     struct tm t;
     int err_time = modem.getSystemTime(t);
     if (err_time == ISBD_SUCCESS) {
       String pre_time = rtc.now().timestamp();
-      // Serial.print(pre_time);
-      // Serial.print(" ");
       rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
       String post_time = rtc.now().timestamp();
-      // Serial.print(post_time);
+      write_to_csv("pre_sync,post_sync,err_time", pre_time + "," + post_time + "," + err_time, "/IRID.csv");
+      // Serial.println(("sync clock");
     }
-  
-  digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
+  }
+
+  modem.sleep();
+
   return err;
 }
 
 void irid_test(String msg) {
 
-  pinMode(IridPwrPin, OUTPUT);     //Set iridium power pin as OUTPUT
-  digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
-  delay(2000);
+  // pinMode(IridPwrPin, OUTPUT);     //Set iridium power pin as OUTPUT
+  // digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
+  // delay(2000);
 
   int signalQuality = -1;
 
@@ -427,7 +401,9 @@ void irid_test(String msg) {
   } else {
     Serial.println(" - hey, it worked!");
   }
-  digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
+
+  modem.sleep();
+
 }
 
 void read_params() {
@@ -441,13 +417,13 @@ void read_params() {
   sample_freq_m_16 = sample_freq_m[0];
   irid_freq_h = (int16_t *)cp["irid_freq_h"];
   irid_freq_h_16 = irid_freq_h[0];
-  onstart_irid = (char **)cp["onstart_irid"];
-  onstart_irid_string = String(onstart_irid[0]);
+  test_mode = (char **)cp["test_mode"];
+  test_mode_string = String(test_mode[0]);
   onstart_samples = (int16_t *)cp["onstart_samples"];
   onstart_samples_16 = onstart_samples[0];
 
   delete sample_freq_m;
   delete irid_freq_h;
-  delete onstart_irid;
+  delete test_mode;
   delete onstart_samples;
 }
