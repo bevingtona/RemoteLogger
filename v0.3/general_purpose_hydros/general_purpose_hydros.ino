@@ -1,5 +1,3 @@
-// Add string concatenation 
-
 /*Include the libraries we need*/
 #include <time.h>
 #include "RTClib.h"           //Needed for communication with Real Time Clock
