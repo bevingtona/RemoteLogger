@@ -1,5 +1,3 @@
-#include <MemoryFree.h>
-
 /*Include the libraries we need*/
 #include <time.h>
 #include "RTClib.h"           //Needed for communication with Real Time Clock
@@ -136,7 +134,7 @@ void setup(void) {
   while (!SD.begin(chipSelect)) { ws.blinky(2, 200, 200, 2000); }
 
   // READ PARAMS
-  read_params();
+  ws.read_params();
 
   if (test_mode_string == "T") {
 
@@ -229,6 +227,7 @@ void loop(void) {
   delay(500); // Half second to make sure we do not skip a second
 }
 
+/* Added to WeatherStations library */
 /*
 void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
   for (int i = 1; i <= n; i++) {
@@ -455,6 +454,8 @@ void irid_test(String msg) {
   digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
 }
 
+/* Added to WeatherStation library */
+/*
 void read_params() {
 
   CSV_Parser cp("ddsd", true, ',');
@@ -476,3 +477,4 @@ void read_params() {
   delete test_mode;
   delete onstart_samples;
 }
+*/
