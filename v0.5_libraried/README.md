@@ -1,5 +1,6 @@
 # Version 0.5 - Adding Libraries
 
+### Note: The files in the WeatherStation folder are not necessarily the most current version of the libraries 
 
 Author: Rachel Pagdin
 

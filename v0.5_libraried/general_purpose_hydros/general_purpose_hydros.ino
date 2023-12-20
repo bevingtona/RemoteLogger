@@ -476,7 +476,4 @@ void read_params() {
   delete test_mode;
   delete onstart_samples;
 }
-<<<<<<< HEAD
 */
-=======
->>>>>>> fe3af97dbd7d891f635dab9a58c438f9c571c231
