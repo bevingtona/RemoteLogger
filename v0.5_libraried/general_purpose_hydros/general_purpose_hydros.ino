@@ -41,8 +41,6 @@ uint16_t watchdog_timer = 30000;
 String myCommand = "";    // SDI-12 command var
 String sdiResponse = "";  // SDI-12 responce var
 
-WeatherStation ws; //instance of WeatherStation class
-
 /*Define Iridium seriel communication as Serial1 */
 #define IridiumSerial Serial1
 
@@ -55,6 +53,7 @@ File dataFile;                    // Setup a log file instance
 IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
 SDI12 mySDI12(dataPin);           // Define the SDI-12 bus
 QuickStats stats;                 // Instance of QuickStats
+WeatherStation ws;                // instance of WeatherStation class
 
 String take_measurement() {
 
