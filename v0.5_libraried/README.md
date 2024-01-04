@@ -1,6 +1,9 @@
 # Version 0.5 - Adding Libraries
 
-### Note: The files in the WeatherStation folder are not necessarily the most current version of the libraries 
+### Note: files in libraries/WeatherStation are the current files for the WeatherStation library applied across the .ino files. Do not change the name of the libraries or WeatherStation directories
+
+### Note: Most comments, notes on code, and all edits to code are in general_purpose_hydros for the purpose of learning the code, testing compilation with libraries, etc.
+
 
 Author: Rachel Pagdin
 

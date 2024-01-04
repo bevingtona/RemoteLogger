@@ -159,6 +159,7 @@ void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
   delay(btw_ms);
 }
 
+//same as for general_purpose_hydros and general_purpose_hydros_analite
 String sample_hydros_M() {
 
   myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
