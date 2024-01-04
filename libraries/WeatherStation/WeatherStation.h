@@ -19,6 +19,9 @@ class WeatherStation
         void read_params();
         void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms);
 
+        //sampling functions
+        //String sample_hydros_M(); //sample from hydros
+
         //parameters (from param file)
         int16_t *sample_freq_m;
         uint16_t sample_freq_m_16;

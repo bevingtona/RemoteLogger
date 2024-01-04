@@ -104,11 +104,14 @@ String prep_msg(){
 
 void setup(void) {
     
-  pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
+  //set Irid power and LED pins  
+  pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50); //Irid power pin (I think) - redundant, done below
   pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
   
+  //set SDI-12 data bus pin
   pinMode(dataPin, INPUT); 
 
+  //sensor set and unset pins
   pinMode(SensorSetPin, OUTPUT); 
   digitalWrite(SensorSetPin, HIGH); delay(50);
   digitalWrite(SensorSetPin, LOW); delay(50);
@@ -117,14 +120,15 @@ void setup(void) {
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
   
+  //set irid power (done above - IridPwrPin = 13)
   pinMode(IridPwrPin, OUTPUT);
   digitalWrite(IridPwrPin, LOW); delay(50);
 
   // START SDI-12 PROTOCOL
-  Serial.println(" - check sdi12");
+  Serial.println(" - check sdi12"); //note Serial is used for communication btwn board and computer/other device - basic Arduino library
   mySDI12.begin();
 
-  // CHECK RTC
+  // CHECK RTC (time)
   Serial.println(" - check clock");
   while (!rtc.begin()) { ws.blinky(1, 200, 200, 2000); }
 
@@ -239,6 +243,7 @@ void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
 }
 */
 
+//same as for general_purpose_hydros_noSD and general_purpose_hydros_analite
 String sample_hydros_M() {
 
   myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
@@ -320,6 +325,10 @@ void write_to_csv(String header, String datastring_for_csv, String outname) {
   }
 }
 
+/*
+note to self: bunch of watchdog stuff in here that Alex said we don't need in new versions
+need to understand how that works before putting into library
+*/
 int send_msg(String my_msg) {
 
   digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
@@ -327,10 +336,11 @@ int send_msg(String my_msg) {
 
   IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
+  //modem is instance of IridiumSBD
 
   Watchdog.disable();
   // Serial.print(" begin");
-  int err = modem.begin();
+  int err = modem.begin(); 
   Watchdog.enable(watchdog_timer);
 
   if (err == ISBD_IS_ASLEEP) {
@@ -346,6 +356,7 @@ int send_msg(String my_msg) {
   err = modem.sendSBDText(my_msg.c_str());
   Watchdog.enable(watchdog_timer);
   
+  //if it doesn't send try again
   if (err != ISBD_SUCCESS){ //} && err != 13) {
     Watchdog.disable();
     // Serial.print(" retry");
@@ -358,6 +369,7 @@ int send_msg(String my_msg) {
     Watchdog.enable(watchdog_timer);
     }
 
+  //update local time (RTC) to time from Iridium
   // Serial.print(" time");
   if(rtc.now().hour() == 12 & rtc.now().day() % 5 == 0){
     struct tm t;
