@@ -2,6 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
-20231010studentemployeecontract-signed.pdf
 learning/
-ide_location/
+paperwork/
+
+!libraries/
+libraries/*
+!libraries/WeatherStation
