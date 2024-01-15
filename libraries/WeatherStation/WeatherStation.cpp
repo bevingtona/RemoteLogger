@@ -50,3 +50,25 @@ void WeatherStation::blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t 
     }
     delay(btw_ms);
 }
+
+void WeatherStation::write_to_csv(String header, String datastring_for_csv, String outname){
+    //instance of File object - used to be global
+    File dataFile;
+
+    // IF FILE DOES NOT EXIST, WRITE HEADER AND DATA, ELSE, WRITE DATA
+    if (!SD.exists(outname)){  //Write header if first time writing to the logfile
+    
+        dataFile = SD.open(outname, FILE_WRITE);  //Open file under filestr name from parameter file
+        if (dataFile) {
+            dataFile.println(header);
+            dataFile.println(datastring_for_csv);
+        }
+        dataFile.close();  //Close the dataFile
+    } else { //file already exists (don't need to write header)
+         dataFile = SD.open(outname, FILE_WRITE);
+        if (dataFile) {
+            dataFile.println(datastring_for_csv);
+            dataFile.close();
+        }
+  }
+}

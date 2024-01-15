@@ -22,7 +22,7 @@ const byte dataPin = 12;        // The pin of the SDI-12 data bus
 const byte IridPwrPin = 13;     // Power base PN222 2 transistor pin to Iridium modem
 
 /*Define global vars */
-String my_letter = "ABC";
+String my_letter = "ABC"; //depends on sensors (what we're measuring) - order matters
 String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
 int16_t *sample_freq_m;
 uint16_t sample_freq_m_16;
@@ -72,9 +72,10 @@ String prep_msg(){
   
   SD.begin(chipSelect);
   CSV_Parser cp("sfffff", true, ',');  // Set paramters for parsing the log file
-  cp.readSDfile("/HOURLY.csv");
+  cp.readSDfile("/HOURLY.csv"); //open CSV file of hourly readings 
   int num_rows = cp.getRowsCount();  //Get # of rows
     
+  //get information from the CSV  
   char **out_datetimes = (char **)cp["datetime"];
   float *out_mem = (float *)cp["memory"];
   float *out_batt_v = (float *)cp["batt_v"];
@@ -82,6 +83,7 @@ String prep_msg(){
   float *out_water_temp_c = (float *)cp["water_temp_c"];
   float *out_water_ec_dcm = (float *)cp["water_ec_dcm"];
   
+  //format the message according to message pattern (see docs)
   String datastring_msg = 
     my_letter + ":" +
     String(out_datetimes[0]).substring(2, 4) + 
@@ -91,6 +93,7 @@ String prep_msg(){
     String(round(out_batt_v[num_rows-1] * 100)) + ":" +
     String(round(out_mem[num_rows-1] / 100)) + ":";
   
+  //attach the readings to the message preamble
   for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
     datastring_msg = 
       datastring_msg + 
@@ -158,12 +161,12 @@ void setup(void) {
     Serial.println("check sensors");
     String datastring_start = rtc.now().timestamp() + "," + take_measurement();
     Serial.print(" - "); Serial.println(datastring_start);
-    write_to_csv(my_header + ",comment", datastring_start + ", startup", "/DATA.csv");
-    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    ws.write_to_csv(my_header + ",comment", datastring_start + ", startup", "/DATA.csv");
+    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
     Serial.print(" - "); Serial.println(prep_msg());
 
     // ONSTART SAMPLES
@@ -172,7 +175,7 @@ void setup(void) {
     for (int i = 0; i < onstart_samples_16; i++) {
       String datastring_start = rtc.now().timestamp() + "," + take_measurement();
       Serial.print(" - "); Serial.println(datastring_start);
-      write_to_csv(my_header + ",comment", datastring_start + ",startup sample " + i, "/DATA.csv");
+      ws.write_to_csv(my_header + ",comment", datastring_start + ",startup sample " + i, "/DATA.csv");
     }
   
     Serial.println("check irid");
@@ -203,7 +206,7 @@ void loop(void) {
       
       // SAVE TO HOURLY ON HOUR
       if(present_time.minute() == 0){
-        write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
+        ws.write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
 
         // SEND MESSAGE
         if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0){ 
@@ -214,7 +217,7 @@ void loop(void) {
         }
       }
          
-      write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
+      ws.write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
       Watchdog.disable();
       Watchdog.enable(100);
       delay(200); // TRIGGER WATCHDOG
@@ -244,6 +247,10 @@ void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
 */
 
 //same as for general_purpose_hydros_noSD and general_purpose_hydros_analite
+/**
+ * builds a command to send on SDI data bus to sensor
+ * sends on data bus and waits for a reponse
+*/
 String sample_hydros_M() {
 
   myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
@@ -272,7 +279,7 @@ String sample_hydros_M() {
   mySDI12.sendCommand(myCommand);
   delay(30);  // wait a while for a response
 
-  while (mySDI12.available()) {  // build string from response
+  while (mySDI12.available()) {  // build string from response (coming character by character along data bus)
     char c = mySDI12.read();
     if ((c != '\n') && (c != '\r')) {
       sdiResponse += c;
@@ -280,8 +287,9 @@ String sample_hydros_M() {
     }
   }
 
-  sdiResponse = sdiResponse.substring(3);
+  sdiResponse = sdiResponse.substring(3); //cut off the first 3 characters
 
+  //replace all + with ,
   for (int i = 0; i < sdiResponse.length(); i++) {
     char c = sdiResponse.charAt(i);
     if (c == '+') {
@@ -294,7 +302,7 @@ String sample_hydros_M() {
     mySDI12.clearBuffer();
 
   if (sdiResponse == "")
-    sdiResponse = "-9,-9,-9";
+    sdiResponse = "-9,-9,-9"; //no reading
 
   return sdiResponse;
 }
@@ -305,9 +313,13 @@ float sample_batt_v() {
   return batt_v;
 }
 
-void write_to_csv(String header, String datastring_for_csv, String outname) {
+/**
+ * outname is name of file to write to
+*/
+//added to WeatherStations library Jan 14, 2024
+/*void write_to_csv(String header, String datastring_for_csv, String outname) {
 
-  // IF FILE DOES NOT EXIST, WRITE HEADER AND DATA, ELSE, WITE DATA
+  // IF FILE DOES NOT EXIST, WRITE HEADER AND DATA, ELSE, WRITE DATA
   if (!SD.exists(outname))  //Write header if first time writing to the logfile
   {
     dataFile = SD.open(outname, FILE_WRITE);  //Open file under filestr name from parameter file
@@ -323,7 +335,7 @@ void write_to_csv(String header, String datastring_for_csv, String outname) {
       dataFile.close();
     }
   }
-}
+}*/
 
 /*
 note to self: bunch of watchdog stuff in here that Alex said we don't need in new versions

@@ -1,3 +1,4 @@
+
 /*
 Version 0.1 of WeatherStation library for modular hydrometric weather stations 
 Author: Rachel Pagdin
@@ -10,6 +11,7 @@ includes support for blinky function
 
 #include "Arduino.h"
 #include "CSV_Parser.h" //needed to parse CSV files
+#include "SD.h"
 
 class WeatherStation
 {
@@ -18,6 +20,7 @@ class WeatherStation
         void begin();
         void read_params();
         void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms);
+        void write_to_csv(String header, String datastring_for_csv, String outname);
 
         //sampling functions
         //String sample_hydros_M(); //sample from hydros
@@ -31,6 +34,9 @@ class WeatherStation
         String test_mode_string;
         int16_t *onstart_samples;
         uint16_t onstart_samples_16;
+
+        //File dataFile; //file to hold the data - make local to write_to_csv() function
+
     private:
         byte _led;
 };
