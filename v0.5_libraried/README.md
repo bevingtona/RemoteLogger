@@ -12,6 +12,8 @@ Author: Rachel Pagdin
 
 ### Jan 14, 2024:
 - added write_to_csv to library --> compiled successfully in general_purpose_hydros.ino (again, tough to test indepently --> may need more testing)
+- added prep_msg to library --> compiled successfully in general_purpose_hydros.ino 
+    - note: my_letter and my_header are doubly represented -- want them to eventually come in as user determined (depending on which sensors are attached/which measurements you want taken)
 
 
 ### Dec 20, 2023:

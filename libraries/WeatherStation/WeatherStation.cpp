@@ -10,12 +10,23 @@ includes support for blinky function
 #include "CSV_Parser.h"
 
 //constructor
-WeatherStation::WeatherStation(){
-    _led = 8; //pin 8 is LED on Feather M0
+WeatherStation::WeatherStation(String letters, String header){
+    // values for pins on Feather M0
+    chipSelect = 4;         // pin for SD card
+    SensorSetPin = 5;       // Power relay set pin to HYDROS21
+    SensorUnsetPin = 6;     // Power relay unset pin to HYDROS21
+    led = 8;                // pin 8 is LED on Feather M0
+    vbatPin = 9;            // batt pin
+    dataPin = 12;           // pin for SDI-12 data bus
+    IridPwrPin = 13;        // Power base PN222 2 transistor pin to Iridium modem
+
+    // set message preamble (letters/header)
+    my_letter = letters;
+    my_header = header;
 }
 
 void WeatherStation::begin(){
-    pinMode(_led, OUTPUT);
+    pinMode(led, OUTPUT);
 }
 
 void WeatherStation::read_params(){
@@ -43,9 +54,9 @@ void WeatherStation::read_params(){
 
 void WeatherStation::blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms){
     for(int i = 1; i <= n; i++){
-        digitalWrite(_led, HIGH);
+        digitalWrite(led, HIGH);
         delay(high_ms);
-        digitalWrite(_led, LOW);
+        digitalWrite(led, LOW);
         delay(low_ms);
     }
     delay(btw_ms);
@@ -71,4 +82,41 @@ void WeatherStation::write_to_csv(String header, String datastring_for_csv, Stri
             dataFile.close();
         }
   }
+}
+
+String WeatherStation::prep_msg(){
+
+    SD.begin(chipSelect);
+    CSV_Parser cp("sfffff", true, ',');  // Set paramters for parsing the log file
+    cp.readSDfile("/HOURLY.csv"); //open CSV file of hourly readings 
+    int num_rows = cp.getRowsCount();  //Get # of rows
+    
+    //get information from the CSV  
+    char **out_datetimes = (char **)cp["datetime"];
+    float *out_mem = (float *)cp["memory"];
+    float *out_batt_v = (float *)cp["batt_v"];
+    float *out_water_level_mm = (float *)cp["water_level_mm"];
+    float *out_water_temp_c = (float *)cp["water_temp_c"];
+    float *out_water_ec_dcm = (float *)cp["water_ec_dcm"];
+  
+    //format the message according to message pattern (see docs)
+    String datastring_msg = 
+        my_letter + ":" +
+        String(out_datetimes[0]).substring(2, 4) + 
+        String(out_datetimes[0]).substring(5, 7) + 
+        String(out_datetimes[0]).substring(8, 10) + 
+        String(out_datetimes[0]).substring(11, 13) + ":" +
+        String(round(out_batt_v[num_rows-1] * 100)) + ":" +
+        String(round(out_mem[num_rows-1] / 100)) + ":";
+  
+    //attach the readings to the message preamble
+    for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
+        datastring_msg = 
+        datastring_msg + 
+        String(round(out_water_level_mm[i])) + ',' + 
+        String(round(out_water_temp_c[i]*10)) + ',' + 
+        String(round(out_water_ec_dcm[i])) + ':';              
+    }
+
+    return datastring_msg;
 }

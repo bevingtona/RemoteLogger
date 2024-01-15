@@ -51,7 +51,7 @@ File dataFile;                    // Setup a log file instance
 IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
 SDI12 mySDI12(dataPin);           // Define the SDI-12 bus
 QuickStats stats;                 // Instance of QuickStats
-WeatherStation ws;                // instance of WeatherStation class
+WeatherStation ws(my_letter, my_header);                // instance of WeatherStation class
 
 String take_measurement() {
 
@@ -68,6 +68,8 @@ String take_measurement() {
   return msmt;
 }
 
+//added to WeatherStations library Jan 14, 2024
+/*
 String prep_msg(){
   
   SD.begin(chipSelect);
@@ -103,7 +105,7 @@ String prep_msg(){
     }
 
   return datastring_msg;
-}
+}*/
 
 void setup(void) {
     
@@ -167,7 +169,7 @@ void setup(void) {
     ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
     ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
     ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    Serial.print(" - "); Serial.println(prep_msg());
+    Serial.print(" - "); Serial.println(ws.prep_msg());
 
     // ONSTART SAMPLES
     Serial.println("check onstart samples");
@@ -210,7 +212,7 @@ void loop(void) {
 
         // SEND MESSAGE
         if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0){ 
-          String msg = prep_msg();
+          String msg = ws.prep_msg();
           int irid_err = send_msg(msg);
           SD.remove("/HOURLY.csv");
 

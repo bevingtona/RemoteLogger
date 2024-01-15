@@ -16,16 +16,34 @@ includes support for blinky function
 class WeatherStation
 {
     public:
-        WeatherStation();
+        WeatherStation(String letters, String header); // arguments possibly temporary (adjust how we indicate which sensors)
         void begin();
         void read_params();
         void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms);
         void write_to_csv(String header, String datastring_for_csv, String outname);
+        String prep_msg();
 
         //sampling functions
         //String sample_hydros_M(); //sample from hydros
 
-        //parameters (from param file)
+        //File dataFile; //file to hold the data - make local to write_to_csv() function
+
+    private:
+        // PIN NUMBERS
+        byte chipSelect;
+        byte SensorSetPin;
+        byte SensorUnsetPin;
+        byte led;
+        byte vbatPin;
+        byte dataPin;
+        byte IridPwrPin;
+
+        // HEADER (indicates measurements) - set in constructor
+        //note: currently these are doubly represented - eventually want them to be user-determined (param file?)
+        String my_letter;
+        String my_header;
+        
+        // PARAMETERS (from param file)
         int16_t *sample_freq_m;
         uint16_t sample_freq_m_16;
         int16_t *irid_freq_h;
@@ -34,11 +52,6 @@ class WeatherStation
         String test_mode_string;
         int16_t *onstart_samples;
         uint16_t onstart_samples_16;
-
-        //File dataFile; //file to hold the data - make local to write_to_csv() function
-
-    private:
-        byte _led;
 };
 
 #endif
