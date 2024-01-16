@@ -4,12 +4,12 @@
 #include <SPI.h>              //Needed for working with SD card
 #include <SD.h>               //Needed for working with SD card
 #include <ArduinoLowPower.h>  //Needed for putting Feather M0 to sleep between samples
-#include <IridiumSBD.h>       //Needed for communication with IRIDIUM modem
+// #include <IridiumSBD.h>       //Needed for communication with IRIDIUM modem
 #include <CSV_Parser.h>       //Needed for parsing CSV data
 #include <SDI12.h>            //Needed for SDI-12 communication
 #include <QuickStats.h>       // Stats
 #include <MemoryFree.h>
-#include <Adafruit_SleepyDog.h>
+// #include <Adafruit_SleepyDog.h>
 #include <WeatherStation.h>
 
 /*Define global constants*/
@@ -184,7 +184,7 @@ void setup(void) {
     }
   
     Serial.println("check irid");
-    irid_test(datastring_start);
+    ws.irid_test(datastring_start);
   
     SD.remove("/HOURLY.csv");
 
@@ -216,7 +216,7 @@ void loop(void) {
         // SEND MESSAGE
         if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0){ 
           String msg = ws.prep_msg();
-          int irid_err = send_msg(msg);
+          int irid_err = ws.send_msg(msg);
           SD.remove("/HOURLY.csv");
 
         }
@@ -346,145 +346,149 @@ float sample_batt_v() {
   }
 }*/
 
+
+/* Added to WeatherStation library Jan 15, 2024*/
 /*
 note to self: bunch of watchdog stuff in here that Alex said we don't need in new versions
 need to understand how that works before putting into library
 */
-int send_msg(String my_msg) {
+// int send_msg(String my_msg) {
 
-  digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
-  delay(2000);
+//   digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
+//   delay(2000);
 
-  IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
-  modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
-  //modem is instance of IridiumSBD
+//   IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
+//   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
+//   //modem is instance of IridiumSBD
 
-  Watchdog.disable();
-  // Serial.print(" begin");
-  int err = modem.begin(); 
-  Watchdog.enable(watchdog_timer);
+//   Watchdog.disable();
+//   // Serial.print(" begin");
+//   int err = modem.begin(); 
+//   Watchdog.enable(watchdog_timer);
 
-  if (err == ISBD_IS_ASLEEP) {
-    Watchdog.disable();
-    // Serial.print(" wake");
-    err = modem.begin();
-    Watchdog.enable(watchdog_timer);
-  }
+//   if (err == ISBD_IS_ASLEEP) {
+//     Watchdog.disable();
+//     // Serial.print(" wake");
+//     err = modem.begin();
+//     Watchdog.enable(watchdog_timer);
+//   }
 
-  Watchdog.disable();
-  // modem.adjustSendReceiveTimeout(300);
-  // Serial.print(" send");
-  err = modem.sendSBDText(my_msg.c_str());
-  Watchdog.enable(watchdog_timer);
+//   Watchdog.disable();
+//   // modem.adjustSendReceiveTimeout(300);
+//   // Serial.print(" send");
+//   err = modem.sendSBDText(my_msg.c_str());
+//   Watchdog.enable(watchdog_timer);
   
-  //if it doesn't send try again
-  if (err != ISBD_SUCCESS){ //} && err != 13) {
-    Watchdog.disable();
-    // Serial.print(" retry");
-    err = modem.begin();
-    Watchdog.enable(watchdog_timer);
-    // modem.adjustSendReceiveTimeout(300);
-    // Serial.print(" send");
-    Watchdog.disable();
-    err = modem.sendSBDText(my_msg.c_str());
-    Watchdog.enable(watchdog_timer);
-    }
+//   //if it doesn't send try again
+//   if (err != ISBD_SUCCESS){ //} && err != 13) {
+//     Watchdog.disable();
+//     // Serial.print(" retry");
+//     err = modem.begin();
+//     Watchdog.enable(watchdog_timer);
+//     // modem.adjustSendReceiveTimeout(300);
+//     // Serial.print(" send");
+//     Watchdog.disable();
+//     err = modem.sendSBDText(my_msg.c_str());
+//     Watchdog.enable(watchdog_timer);
+//     }
 
-  //update local time (RTC) to time from Iridium
-  // Serial.print(" time");
-  if(rtc.now().hour() == 12 & rtc.now().day() % 5 == 0){
-    struct tm t;
-    int err_time = modem.getSystemTime(t);
-    if (err_time == ISBD_SUCCESS) {
-      String pre_time = rtc.now().timestamp();
-      rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
-      String post_time = rtc.now().timestamp();
-    }
-  }
+//   //update local time (RTC) to time from Iridium
+//   // Serial.print(" time");
+//   if(rtc.now().hour() == 12 & rtc.now().day() % 5 == 0){
+//     struct tm t;
+//     int err_time = modem.getSystemTime(t);
+//     if (err_time == ISBD_SUCCESS) {
+//       String pre_time = rtc.now().timestamp();
+//       rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
+//       String post_time = rtc.now().timestamp();
+//     }
+//   }
   
-  digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
-  return err;
-}
+//   digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
+//   return err;
+// }
 
-void irid_test(String msg) {
 
-  pinMode(IridPwrPin, OUTPUT);     //Set iridium power pin as OUTPUT
-  digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
-  delay(2000);
+/* Added to WeatherStation library Jan 15, 2024 */
+// void irid_test(String msg) {
 
-  int signalQuality = -1;
+//   pinMode(IridPwrPin, OUTPUT);     //Set iridium power pin as OUTPUT
+//   digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
+//   delay(2000);
 
-  IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
-  modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
+//   int signalQuality = -1;
 
-  // Begin satellite modem operation
-  Serial.println(" - starting modem...");
-  int err = modem.begin();
+//   IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
+//   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
 
-  if (err != ISBD_SUCCESS) {
-    Serial.print(" - begin failed: error ");
-    Serial.println(err);
-    if (err == ISBD_NO_MODEM_DETECTED)
-      Serial.println(" - no modem detected: check wiring.");
-    return;
-  }
+//   // Begin satellite modem operation
+//   Serial.println(" - starting modem...");
+//   int err = modem.begin();
 
-  // Example: Print the firmware revision
-  char version[12];
-  err = modem.getFirmwareVersion(version, sizeof(version));
-  if (err != ISBD_SUCCESS) {
-    Serial.print(" - firmware version failed: error ");
-    Serial.println(err);
-    return;
-  }
+//   if (err != ISBD_SUCCESS) {
+//     Serial.print(" - begin failed: error ");
+//     Serial.println(err);
+//     if (err == ISBD_NO_MODEM_DETECTED)
+//       Serial.println(" - no modem detected: check wiring.");
+//     return;
+//   }
 
-  Serial.print(" - firmware version is ");
-  Serial.print(version);
-  Serial.println(".");
+//   // Example: Print the firmware revision
+//   char version[12];
+//   err = modem.getFirmwareVersion(version, sizeof(version));
+//   if (err != ISBD_SUCCESS) {
+//     Serial.print(" - firmware version failed: error ");
+//     Serial.println(err);
+//     return;
+//   }
 
-  int n = 0;
-  while (n < 10) {
-    err = modem.getSignalQuality(signalQuality);
-    if (err != ISBD_SUCCESS) {
-      Serial.print(" - signalQuality failed: error ");
-      Serial.println(err);
-      return;
-    }
+//   Serial.print(" - firmware version is ");
+//   Serial.print(version);
+//   Serial.println(".");
 
-    Serial.print(" - signal quality is currently ");
-    Serial.print(signalQuality);
-    Serial.println(".");
-    n = n + 1;
-    delay(1000);
-  }
+//   int n = 0;
+//   while (n < 10) {
+//     err = modem.getSignalQuality(signalQuality);
+//     if (err != ISBD_SUCCESS) {
+//       Serial.print(" - signalQuality failed: error ");
+//       Serial.println(err);
+//       return;
+//     }
 
-  // Send the message
-  Serial.print(" - Attempting: ");
-  msg = "Hello world! " + msg;
-  Serial.println(msg);
+//     Serial.print(" - signal quality is currently ");
+//     Serial.print(signalQuality);
+//     Serial.println(".");
+//     n = n + 1;
+//     delay(1000);
+//   }
 
-  err = modem.sendSBDText(msg.c_str());
+//   // Send the message
+//   Serial.print(" - Attempting: ");
+//   msg = "Hello world! " + msg;
+//   Serial.println(msg);
 
-  if (err != ISBD_SUCCESS) {
-    Serial.print(" - sendSBDText failed: error ");
-    Serial.println(err);
-    if (err == ISBD_SENDRECEIVE_TIMEOUT)
-      Serial.println(" - try again with a better view of the sky.");
-  } else {
-    Serial.println(" - hey, it worked!");
-  }
+//   err = modem.sendSBDText(msg.c_str());
 
-  Serial.println("Sync clock to Iridium");
-  struct tm t;
-  int err_time = modem.getSystemTime(t);
-  if (err_time == ISBD_SUCCESS) {
-    String pre_time = rtc.now().timestamp();
-    rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
-    String post_time = rtc.now().timestamp();
-  }
+//   if (err != ISBD_SUCCESS) {
+//     Serial.print(" - sendSBDText failed: error ");
+//     Serial.println(err);
+//     if (err == ISBD_SENDRECEIVE_TIMEOUT)
+//       Serial.println(" - try again with a better view of the sky.");
+//   } else {
+//     Serial.println(" - hey, it worked!");
+//   }
 
-  digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
-}
+//   Serial.println("Sync clock to Iridium");
+//   struct tm t;
+//   int err_time = modem.getSystemTime(t);
+//   if (err_time == ISBD_SUCCESS) {
+//     String pre_time = rtc.now().timestamp();
+//     rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
+//     String post_time = rtc.now().timestamp();
+//   }
+
+//   digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
+// }
 
 /* Added to WeatherStation library */
 /*

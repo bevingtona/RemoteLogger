@@ -7,7 +7,6 @@ includes support for blinky function
 
 #include "Arduino.h"
 #include "WeatherStation.h"
-#include "CSV_Parser.h"
 
 //constructor
 WeatherStation::WeatherStation(String letters, String header){
@@ -25,7 +24,11 @@ WeatherStation::WeatherStation(String letters, String header){
     my_header = header;
 
     // library instances assignment
-    SDI12 mySDI12 = SDI12(dataPin); 
+    SDI12 mySDI12 = SDI12(dataPin); //needs to be instantiated here because it needs the value for dataPin; may be able to change if pin values are declared as const in .h file
+
+    // constants 
+    blink_freq_s = 10;
+    watchdog_timer = 30000;
 }
 
 void WeatherStation::begin(){
@@ -201,4 +204,138 @@ String WeatherStation::take_measurement(){
     digitalWrite(SensorUnsetPin, LOW); delay(50);
 
     return msmt;
+}
+
+void WeatherStation::irid_test(String msg){
+    pinMode(IridPwrPin, OUTPUT);     //Set iridium power pin as OUTPUT
+    digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
+    delay(2000);
+
+    int signalQuality = -1;
+
+    IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
+    modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
+
+    // Begin satellite modem operation
+    Serial.println(" - starting modem...");
+    int err = modem.begin();
+
+    if (err != ISBD_SUCCESS) {
+        Serial.print(" - begin failed: error ");
+        Serial.println(err);
+        if (err == ISBD_NO_MODEM_DETECTED)
+            Serial.println(" - no modem detected: check wiring.");
+        return;
+    }
+
+    // Example: Print the firmware revision
+    char version[12];
+    err = modem.getFirmwareVersion(version, sizeof(version));
+    if (err != ISBD_SUCCESS) {
+        Serial.print(" - firmware version failed: error ");
+        Serial.println(err);
+        return;
+    }
+
+    Serial.print(" - firmware version is ");
+    Serial.print(version);
+    Serial.println(".");
+
+    int n = 0;
+    while (n < 10) {
+        err = modem.getSignalQuality(signalQuality);
+        if (err != ISBD_SUCCESS) {
+            Serial.print(" - signalQuality failed: error ");
+            Serial.println(err);
+            return;
+        }
+
+        Serial.print(" - signal quality is currently ");
+        Serial.print(signalQuality);
+        Serial.println(".");
+        n = n + 1;
+        delay(1000);
+    }
+
+    // Send the message
+    Serial.print(" - Attempting: ");
+    msg = "Hello world! " + msg;
+    Serial.println(msg);
+
+    err = modem.sendSBDText(msg.c_str());
+
+    if (err != ISBD_SUCCESS) {
+        Serial.print(" - sendSBDText failed: error ");
+        Serial.println(err);
+        if (err == ISBD_SENDRECEIVE_TIMEOUT)
+            Serial.println(" - try again with a better view of the sky.");
+    } else {
+        Serial.println(" - hey, it worked!");
+    }
+
+    Serial.println("Sync clock to Iridium");
+    struct tm t;
+    int err_time = modem.getSystemTime(t);
+    if (err_time == ISBD_SUCCESS) {
+        String pre_time = rtc.now().timestamp();
+        rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
+        String post_time = rtc.now().timestamp();
+    }
+
+    digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
+}
+
+int WeatherStation::send_msg(String my_msg){
+    digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
+    delay(2000);
+
+    IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
+    modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
+    //modem is instance of IridiumSBD
+
+    Watchdog.disable();
+    // Serial.print(" begin");
+    int err = modem.begin(); 
+    Watchdog.enable(watchdog_timer);
+
+    if (err == ISBD_IS_ASLEEP) {
+        Watchdog.disable();
+        // Serial.print(" wake");
+        err = modem.begin();
+        Watchdog.enable(watchdog_timer);
+    }
+
+    Watchdog.disable();
+    // modem.adjustSendReceiveTimeout(300);
+    // Serial.print(" send");
+    err = modem.sendSBDText(my_msg.c_str());
+    Watchdog.enable(watchdog_timer);
+  
+    //if it doesn't send try again
+    if (err != ISBD_SUCCESS){ //} && err != 13) {
+        Watchdog.disable();
+        // Serial.print(" retry");
+        err = modem.begin();
+        Watchdog.enable(watchdog_timer);
+        // modem.adjustSendReceiveTimeout(300);
+        // Serial.print(" send");
+        Watchdog.disable();
+        err = modem.sendSBDText(my_msg.c_str());
+        Watchdog.enable(watchdog_timer);
+    }
+
+    //update local time (RTC) to time from Iridium
+    // Serial.print(" time");
+    if(rtc.now().hour() == 12 & rtc.now().day() % 5 == 0){
+        struct tm t;
+        int err_time = modem.getSystemTime(t);
+        if (err_time == ISBD_SUCCESS) {
+            String pre_time = rtc.now().timestamp();
+            rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
+            String post_time = rtc.now().timestamp();
+        }
+    }
+  
+    digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
+    return err;    
 }

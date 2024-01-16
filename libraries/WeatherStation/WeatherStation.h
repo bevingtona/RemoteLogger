@@ -12,8 +12,12 @@ includes support for blinky function
 #include "Arduino.h"
 #include "CSV_Parser.h"         // Needed to parse CSV files
 #include "SD.h"
-#include <SDI12.h>              // Needed for SDI-12 communication
-#include <MemoryFree.h>
+#include "SDI12.h"              // Needed for SDI-12 communication
+#include "MemoryFree.h"
+#include "RTClib.h"             // Needed for communication with Real Time Clock
+#include "IridiumSBD.h"         // Needed for communication with IRIDIUM modem
+#include "Adafruit_SleepyDog.h" // Watchdog
+#include "time.h"
 
 /*SDI-12 sensor address, assumed to be 0*/
 #define SENSOR_ADDRESS 0
@@ -33,6 +37,8 @@ class WeatherStation
         String prep_msg();
         float sample_batt_v(); 
         String take_measurement();
+        void irid_test(String msg);
+        int send_msg(String my_msg);
 
         //data sampling functions
         String sample_hydros_M(); //sample from hydros
@@ -67,6 +73,12 @@ class WeatherStation
 
         // LIBRARY INSTANCES
         SDI12 mySDI12; 
+        RTC_PCF8523 rtc;
+        IridiumSBD modem = IridiumSBD(IridiumSerial);
+
+        // CONSTANTS
+        uint16_t blink_freq_s;
+        uint16_t watchdog_timer;
 };
 
 #endif

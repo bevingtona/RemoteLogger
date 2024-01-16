@@ -14,6 +14,8 @@ Author: Rachel Pagdin
 - added sample_batt_v to library --> compiled successfully in general_purpose_hydros.ino
 - added sample_hydros_M to library --> compiled successfully in general_purpose_hydros.ino
 - added take_measurement to library --> compiled successfully in general_purpose_hydros.ino
+- added irid_test & send_msg to library --> compiled successfully in general_purpose_hydros.ino
+    - note: IridiumSBD library does not have header guards --> be careful not to doubly define it (causes problems)
 
 
 ### Jan 14, 2024:
