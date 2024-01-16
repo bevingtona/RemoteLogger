@@ -54,20 +54,22 @@ SDI12 mySDI12(dataPin);           // Define the SDI-12 bus (currently doubly dec
 QuickStats stats;                 // Instance of QuickStats
 WeatherStation ws(my_letter, my_header);                // instance of WeatherStation class
 
-String take_measurement() {
 
-  digitalWrite(SensorSetPin, HIGH); delay(50);
-  digitalWrite(SensorSetPin, LOW); delay(1000);
+/* Added to WeatherStation library Jan 15, 2024 */
+// String take_measurement() {
+
+//   digitalWrite(SensorSetPin, HIGH); delay(50);
+//   digitalWrite(SensorSetPin, LOW); delay(1000);
   
-  String msmt = String(ws.sample_batt_v()) + "," + 
-    freeMemory() + "," + 
-    ws.sample_hydros_M();
+//   String msmt = String(ws.sample_batt_v()) + "," + 
+//     freeMemory() + "," + 
+//     ws.sample_hydros_M();
 
-  digitalWrite(SensorUnsetPin, HIGH); delay(50);
-  digitalWrite(SensorUnsetPin, LOW); delay(50);
+//   digitalWrite(SensorUnsetPin, HIGH); delay(50);
+//   digitalWrite(SensorUnsetPin, LOW); delay(50);
 
-  return msmt;
-}
+//   return msmt;
+// }
 
 //added to WeatherStations library Jan 14, 2024
 /*
@@ -162,7 +164,7 @@ void setup(void) {
 
     // CHECK SENSORS
     Serial.println("check sensors");
-    String datastring_start = rtc.now().timestamp() + "," + take_measurement();
+    String datastring_start = rtc.now().timestamp() + "," + ws.take_measurement();
     Serial.print(" - "); Serial.println(datastring_start);
     ws.write_to_csv(my_header + ",comment", datastring_start + ", startup", "/DATA.csv");
     ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
@@ -176,7 +178,7 @@ void setup(void) {
     Serial.println("check onstart samples");
     Serial.print(" - "); Serial.println(my_header);
     for (int i = 0; i < onstart_samples_16; i++) {
-      String datastring_start = rtc.now().timestamp() + "," + take_measurement();
+      String datastring_start = rtc.now().timestamp() + "," + ws.take_measurement();
       Serial.print(" - "); Serial.println(datastring_start);
       ws.write_to_csv(my_header + ",comment", datastring_start + ",startup sample " + i, "/DATA.csv");
     }
@@ -204,7 +206,7 @@ void loop(void) {
     
     // TAKE A SAMPLE AT INTERVAL 
     if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0){
-      String sample = take_measurement();
+      String sample = ws.take_measurement();
       Watchdog.reset();
       
       // SAVE TO HOURLY ON HOUR

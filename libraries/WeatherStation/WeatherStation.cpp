@@ -188,3 +188,17 @@ String WeatherStation::sample_hydros_M(){
 
     return sdiResponse;
 }
+
+String WeatherStation::take_measurement(){
+    digitalWrite(SensorSetPin, HIGH); delay(50);
+    digitalWrite(SensorSetPin, LOW); delay(1000);
+  
+    String msmt = String(sample_batt_v()) + "," + 
+        freeMemory() + "," + 
+        sample_hydros_M();
+
+    digitalWrite(SensorUnsetPin, HIGH); delay(50);
+    digitalWrite(SensorUnsetPin, LOW); delay(50);
+
+    return msmt;
+}

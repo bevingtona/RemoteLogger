@@ -13,6 +13,7 @@ Author: Rachel Pagdin
 ### Jan 15, 2024:
 - added sample_batt_v to library --> compiled successfully in general_purpose_hydros.ino
 - added sample_hydros_M to library --> compiled successfully in general_purpose_hydros.ino
+- added take_measurement to library --> compiled successfully in general_purpose_hydros.ino
 
 
 ### Jan 14, 2024:

@@ -13,6 +13,7 @@ includes support for blinky function
 #include "CSV_Parser.h"         // Needed to parse CSV files
 #include "SD.h"
 #include <SDI12.h>              // Needed for SDI-12 communication
+#include <MemoryFree.h>
 
 /*SDI-12 sensor address, assumed to be 0*/
 #define SENSOR_ADDRESS 0
@@ -31,6 +32,7 @@ class WeatherStation
         void write_to_csv(String header, String datastring_for_csv, String outname);
         String prep_msg();
         float sample_batt_v(); 
+        String take_measurement();
 
         //data sampling functions
         String sample_hydros_M(); //sample from hydros
