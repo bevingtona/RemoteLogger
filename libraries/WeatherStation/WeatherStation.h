@@ -18,6 +18,8 @@ includes support for blinky function
 #include "IridiumSBD.h"         // Needed for communication with IRIDIUM modem
 #include "Adafruit_SleepyDog.h" // Watchdog
 #include "time.h"
+#include "QuickStats.h"         // Stats
+#include "ArduinoLowPower.h"    // Needed for putting Feather M0 to sleep between samples
 
 /*SDI-12 sensor address, assumed to be 0*/
 #define SENSOR_ADDRESS 0
@@ -30,7 +32,9 @@ class WeatherStation
     public:
         // basic weather station functions 
         WeatherStation(String letters, String header); // arguments possibly temporary (adjust how we indicate which sensors)
-        void begin();
+        void begin(); // to be called in begin()
+        void run(); // to be called in loop()
+
         void read_params();
         void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms);
         void write_to_csv(String header, String datastring_for_csv, String outname);
@@ -75,10 +79,12 @@ class WeatherStation
         SDI12 mySDI12; 
         RTC_PCF8523 rtc;
         IridiumSBD modem = IridiumSBD(IridiumSerial);
+        QuickStats stats;
 
         // CONSTANTS
         uint16_t blink_freq_s;
         uint16_t watchdog_timer;
+        
 };
 
 #endif

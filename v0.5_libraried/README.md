@@ -16,6 +16,14 @@ Author: Rachel Pagdin
 - added take_measurement to library --> compiled successfully in general_purpose_hydros.ino
 - added irid_test & send_msg to library --> compiled successfully in general_purpose_hydros.ino
     - note: IridiumSBD library does not have header guards --> be careful not to doubly define it (causes problems)
+- added begin() and run() to be called in .ino setup() and loop() functions --> compiled successfully in general_purpose_hydros.ino
+
+
+Notes:
+- want to split begin() and run() into more smaller functions so it's easier to see what's happening
+- clean up comments in general_purpose_hydros
+- next step: integrate library into other files, accomodate more kinds of sensors
+- longer term: make more flexible to select which sensors are attached/which measurements you want (in param file? or some other kind of user input?)
 
 
 ### Jan 14, 2024:

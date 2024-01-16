@@ -110,133 +110,142 @@ String prep_msg(){
   return datastring_msg;
 }*/
 
-void setup(void) {
-    
-  //set Irid power and LED pins  
-  pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50); //Irid power pin (I think) - redundant, done below
-  pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
-  
-  //set SDI-12 data bus pin
-  pinMode(dataPin, INPUT); 
 
-  //sensor set and unset pins
-  pinMode(SensorSetPin, OUTPUT); 
-  digitalWrite(SensorSetPin, HIGH); delay(50);
-  digitalWrite(SensorSetPin, LOW); delay(50);
-  
-  pinMode(SensorUnsetPin, OUTPUT);
-  digitalWrite(SensorUnsetPin, HIGH); delay(50);
-  digitalWrite(SensorUnsetPin, LOW); delay(50);
-  
-  //set irid power (done above - IridPwrPin = 13)
-  pinMode(IridPwrPin, OUTPUT);
-  digitalWrite(IridPwrPin, LOW); delay(50);
-
-  // START SDI-12 PROTOCOL
-  Serial.println(" - check sdi12"); //note Serial is used for communication btwn board and computer/other device - basic Arduino library
-  mySDI12.begin();
-
-  // CHECK RTC (time)
-  Serial.println(" - check clock");
-  while (!rtc.begin()) { ws.blinky(1, 200, 200, 2000); }
-
-  // CHECK SD CARD
-  Serial.println(" - check card");
-  while (!SD.begin(chipSelect)) { ws.blinky(2, 200, 200, 2000); }
-
-  // READ PARAMS
-  ws.read_params();
-
-  if (test_mode_string == "T") {
-
-    SD.remove("/HOURLY.csv");
-
-    delay(3000);
-    Serial.begin(9600);
-    Serial.println("###########################################");
-    Serial.println("starting");
-
-    Serial.println("check params");
-    Serial.print(" - sample_freq_m_16: "); Serial.println(sample_freq_m_16);
-    Serial.print(" - irid_freq_h_16: "); Serial.println(irid_freq_h_16);
-    Serial.print(" - test_mode_string: "); Serial.println(test_mode_string);
-    Serial.print(" - onstart_samples_16: "); Serial.println(onstart_samples_16);
-
-    // CHECK SENSORS
-    Serial.println("check sensors");
-    String datastring_start = rtc.now().timestamp() + "," + ws.take_measurement();
-    Serial.print(" - "); Serial.println(datastring_start);
-    ws.write_to_csv(my_header + ",comment", datastring_start + ", startup", "/DATA.csv");
-    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    Serial.print(" - "); Serial.println(ws.prep_msg());
-
-    // ONSTART SAMPLES
-    Serial.println("check onstart samples");
-    Serial.print(" - "); Serial.println(my_header);
-    for (int i = 0; i < onstart_samples_16; i++) {
-      String datastring_start = rtc.now().timestamp() + "," + ws.take_measurement();
-      Serial.print(" - "); Serial.println(datastring_start);
-      ws.write_to_csv(my_header + ",comment", datastring_start + ",startup sample " + i, "/DATA.csv");
-    }
-  
-    Serial.println("check irid");
-    ws.irid_test(datastring_start);
-  
-    SD.remove("/HOURLY.csv");
-
-  };
-
-  Serial.println("Awaiting delayed start ...");
-
-  int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
-
+void setup(void){
+  ws.begin();
 }
 
-void loop(void) {
-  
-  DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
-  
-  // BLINK INTERVAL, THEN SLEEP
-  if (present_time.second() % 10 == 0){
-    ws.blinky(1, 20, 200, 200);
+void loop(void){
+  ws.run();
+}
+
+// void setup(void) {
     
-    // TAKE A SAMPLE AT INTERVAL 
-    if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0){
-      String sample = ws.take_measurement();
-      Watchdog.reset();
+//   //set Irid power and LED pins  
+//   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50); //Irid power pin (I think) - redundant, done below
+//   pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
+  
+//   //set SDI-12 data bus pin
+//   pinMode(dataPin, INPUT); 
+
+//   //sensor set and unset pins
+//   pinMode(SensorSetPin, OUTPUT); 
+//   digitalWrite(SensorSetPin, HIGH); delay(50);
+//   digitalWrite(SensorSetPin, LOW); delay(50);
+  
+//   pinMode(SensorUnsetPin, OUTPUT);
+//   digitalWrite(SensorUnsetPin, HIGH); delay(50);
+//   digitalWrite(SensorUnsetPin, LOW); delay(50);
+  
+//   //set irid power (done above - IridPwrPin = 13)
+//   pinMode(IridPwrPin, OUTPUT);
+//   digitalWrite(IridPwrPin, LOW); delay(50);
+
+//   // START SDI-12 PROTOCOL
+//   Serial.println(" - check sdi12"); //note Serial is used for communication btwn board and computer/other device - basic Arduino library
+//   mySDI12.begin();
+
+//   // CHECK RTC (time)
+//   Serial.println(" - check clock");
+//   while (!rtc.begin()) { ws.blinky(1, 200, 200, 2000); }
+
+//   // CHECK SD CARD
+//   Serial.println(" - check card");
+//   while (!SD.begin(chipSelect)) { ws.blinky(2, 200, 200, 2000); }
+
+//   // READ PARAMS
+//   ws.read_params();
+
+//   if (test_mode_string == "T") {
+
+//     SD.remove("/HOURLY.csv");
+
+//     delay(3000);
+//     Serial.begin(9600);
+//     Serial.println("###########################################");
+//     Serial.println("starting");
+
+//     Serial.println("check params");
+//     Serial.print(" - sample_freq_m_16: "); Serial.println(sample_freq_m_16);
+//     Serial.print(" - irid_freq_h_16: "); Serial.println(irid_freq_h_16);
+//     Serial.print(" - test_mode_string: "); Serial.println(test_mode_string);
+//     Serial.print(" - onstart_samples_16: "); Serial.println(onstart_samples_16);
+
+//     // CHECK SENSORS
+//     Serial.println("check sensors");
+//     String datastring_start = rtc.now().timestamp() + "," + ws.take_measurement();
+//     Serial.print(" - "); Serial.println(datastring_start);
+//     ws.write_to_csv(my_header + ",comment", datastring_start + ", startup", "/DATA.csv");
+//     ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+//     ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+//     ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+//     ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+//     ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+//     Serial.print(" - "); Serial.println(ws.prep_msg());
+
+//     // ONSTART SAMPLES
+//     Serial.println("check onstart samples");
+//     Serial.print(" - "); Serial.println(my_header);
+//     for (int i = 0; i < onstart_samples_16; i++) {
+//       String datastring_start = rtc.now().timestamp() + "," + ws.take_measurement();
+//       Serial.print(" - "); Serial.println(datastring_start);
+//       ws.write_to_csv(my_header + ",comment", datastring_start + ",startup sample " + i, "/DATA.csv");
+//     }
+  
+//     Serial.println("check irid");
+//     ws.irid_test(datastring_start);
+  
+//     SD.remove("/HOURLY.csv");
+
+//   };
+
+//   Serial.println("Awaiting delayed start ...");
+
+//   int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
+
+// }
+
+// void loop(void) {
+  
+//   DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
+  
+//   // BLINK INTERVAL, THEN SLEEP
+//   if (present_time.second() % 10 == 0){
+//     ws.blinky(1, 20, 200, 200);
+    
+//     // TAKE A SAMPLE AT INTERVAL 
+//     if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0){
+//       String sample = ws.take_measurement();
+//       Watchdog.reset();
       
-      // SAVE TO HOURLY ON HOUR
-      if(present_time.minute() == 0){
-        ws.write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
+//       // SAVE TO HOURLY ON HOUR
+//       if(present_time.minute() == 0){
+//         ws.write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
 
-        // SEND MESSAGE
-        if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0){ 
-          String msg = ws.prep_msg();
-          int irid_err = ws.send_msg(msg);
-          SD.remove("/HOURLY.csv");
+//         // SEND MESSAGE
+//         if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0){ 
+//           String msg = ws.prep_msg();
+//           int irid_err = ws.send_msg(msg);
+//           SD.remove("/HOURLY.csv");
 
-        }
-      }
+//         }
+//       }
          
-      ws.write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
-      Watchdog.disable();
-      Watchdog.enable(100);
-      delay(200); // TRIGGER WATCHDOG
+//       ws.write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
+//       Watchdog.disable();
+//       Watchdog.enable(100);
+//       delay(200); // TRIGGER WATCHDOG
 
-    }
+//     }
     
-    DateTime sample_end = rtc.now();
-    uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
-    LowPower.sleep(sleep_time);
-    }
+//     DateTime sample_end = rtc.now();
+//     uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
+//     LowPower.sleep(sleep_time);
+//     }
   
-  Watchdog.reset();
-  delay(500); // Half second to make sure we do not skip a second
-}
+//   Watchdog.reset();
+//   delay(500); // Half second to make sure we do not skip a second
+// }
 
 /* Added to WeatherStation library */
 /*
