@@ -10,6 +10,11 @@ Author: Rachel Pagdin
 
 ## Library add log: 
 
+### Jan 15, 2024:
+- added sample_batt_v to library --> compiled successfully in general_purpose_hydros.ino
+
+
+
 ### Jan 14, 2024:
 - added write_to_csv to library --> compiled successfully in general_purpose_hydros.ino (again, tough to test indepently --> may need more testing)
 - added prep_msg to library --> compiled successfully in general_purpose_hydros.ino 

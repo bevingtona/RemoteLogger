@@ -58,7 +58,7 @@ String take_measurement() {
   digitalWrite(SensorSetPin, HIGH); delay(50);
   digitalWrite(SensorSetPin, LOW); delay(1000);
   
-  String msmt = String(sample_batt_v()) + "," + 
+  String msmt = String(ws.sample_batt_v()) + "," + 
     freeMemory() + "," + 
     sample_hydros_M();
 
@@ -235,7 +235,7 @@ void loop(void) {
   delay(500); // Half second to make sure we do not skip a second
 }
 
-/* Added to WeatherStations library */
+/* Added to WeatherStation library */
 /*
 void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
   for (int i = 1; i <= n; i++) {
@@ -309,11 +309,13 @@ String sample_hydros_M() {
   return sdiResponse;
 }
 
+/* Added to WeatherStation library */
+/*
 float sample_batt_v() {
   pinMode(vbatPin, INPUT);
   float batt_v = (analogRead(vbatPin) * 2 * 3.3) / 1024;
   return batt_v;
-}
+}*/
 
 /**
  * outname is name of file to write to

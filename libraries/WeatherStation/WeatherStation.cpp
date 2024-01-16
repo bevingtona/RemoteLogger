@@ -120,3 +120,9 @@ String WeatherStation::prep_msg(){
 
     return datastring_msg;
 }
+
+float WeatherStation::sample_batt_v(){
+    pinMode(vbatPin, INPUT);
+    float batt_v = (analogRead(vbatPin) * 2 * 3.3) / 1024;
+    return batt_v;
+}

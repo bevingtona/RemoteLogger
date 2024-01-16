@@ -16,17 +16,19 @@ includes support for blinky function
 class WeatherStation
 {
     public:
+        // basic weather station functions 
         WeatherStation(String letters, String header); // arguments possibly temporary (adjust how we indicate which sensors)
         void begin();
         void read_params();
         void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms);
         void write_to_csv(String header, String datastring_for_csv, String outname);
         String prep_msg();
+        float sample_batt_v(); 
 
-        //sampling functions
+        //data sampling functions
         //String sample_hydros_M(); //sample from hydros
 
-        //File dataFile; //file to hold the data - make local to write_to_csv() function
+        //File dataFile; //file to hold the data - made local to write_to_csv() function
 
     private:
         // PIN NUMBERS
