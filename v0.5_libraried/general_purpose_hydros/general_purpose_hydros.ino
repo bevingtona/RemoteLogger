@@ -36,8 +36,9 @@ uint16_t onstart_samples_16;
 uint16_t blink_freq_s = 10;
 uint16_t watchdog_timer = 30000;
 
-String myCommand = "";    // SDI-12 command var
-String sdiResponse = "";  // SDI-12 responce var
+//both only in sample_hydros_M --> make local
+// String myCommand = "";    // SDI-12 command var
+// String sdiResponse = "";  // SDI-12 responce var
 
 /*Define Iridium seriel communication as Serial1 */
 #define IridiumSerial Serial1
@@ -49,7 +50,7 @@ String sdiResponse = "";  // SDI-12 responce var
 RTC_PCF8523 rtc;                  // Setup a PCF8523 Real Time Clock instance (may have to change this to more precise DS3231)
 File dataFile;                    // Setup a log file instance
 IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
-SDI12 mySDI12(dataPin);           // Define the SDI-12 bus
+SDI12 mySDI12(dataPin);           // Define the SDI-12 bus (currently doubly declared)
 QuickStats stats;                 // Instance of QuickStats
 WeatherStation ws(my_letter, my_header);                // instance of WeatherStation class
 
@@ -60,7 +61,7 @@ String take_measurement() {
   
   String msmt = String(ws.sample_batt_v()) + "," + 
     freeMemory() + "," + 
-    sample_hydros_M();
+    ws.sample_hydros_M();
 
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
@@ -248,66 +249,68 @@ void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
 }
 */
 
+
+/* Added to WeatherStation library */
 //same as for general_purpose_hydros_noSD and general_purpose_hydros_analite
 /**
  * builds a command to send on SDI data bus to sensor
  * sends on data bus and waits for a reponse
 */
-String sample_hydros_M() {
+// String sample_hydros_M() {
 
-  myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
+//   myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
 
-  mySDI12.sendCommand(myCommand);
-  delay(30);  // wait a while for a response
+//   mySDI12.sendCommand(myCommand);
+//   delay(30);  // wait a while for a response
 
-  while (mySDI12.available()) {  // build response string
-    char c = mySDI12.read();
-    if ((c != '\n') && (c != '\r')) {
-      sdiResponse += c;
-      delay(10);  // 1 character ~ 7.5ms
-    }
-  }
+//   while (mySDI12.available()) {  // build response string
+//     char c = mySDI12.read();
+//     if ((c != '\n') && (c != '\r')) {
+//       sdiResponse += c;
+//       delay(10);  // 1 character ~ 7.5ms
+//     }
+//   }
 
-  /*Clear buffer*/
-  if (sdiResponse.length() > 1)
-    mySDI12.clearBuffer();
+//   /*Clear buffer*/
+//   if (sdiResponse.length() > 1)
+//     mySDI12.clearBuffer();
 
-  delay(2000);       // delay between taking reading and requesting data
-  sdiResponse = "";  // clear the response string
+//   delay(2000);       // delay between taking reading and requesting data
+//   sdiResponse = "";  // clear the response string
 
-  // next command to request data from last measurement
-  myCommand = String(SENSOR_ADDRESS) + "D0!";
+//   // next command to request data from last measurement
+//   myCommand = String(SENSOR_ADDRESS) + "D0!";
 
-  mySDI12.sendCommand(myCommand);
-  delay(30);  // wait a while for a response
+//   mySDI12.sendCommand(myCommand);
+//   delay(30);  // wait a while for a response
 
-  while (mySDI12.available()) {  // build string from response (coming character by character along data bus)
-    char c = mySDI12.read();
-    if ((c != '\n') && (c != '\r')) {
-      sdiResponse += c;
-      delay(10);  // 1 character ~ 7.5ms
-    }
-  }
+//   while (mySDI12.available()) {  // build string from response (coming character by character along data bus)
+//     char c = mySDI12.read();
+//     if ((c != '\n') && (c != '\r')) {
+//       sdiResponse += c;
+//       delay(10);  // 1 character ~ 7.5ms
+//     }
+//   }
 
-  sdiResponse = sdiResponse.substring(3); //cut off the first 3 characters
+//   sdiResponse = sdiResponse.substring(3); //cut off the first 3 characters
 
-  //replace all + with ,
-  for (int i = 0; i < sdiResponse.length(); i++) {
-    char c = sdiResponse.charAt(i);
-    if (c == '+') {
-      sdiResponse.setCharAt(i, ',');
-    }
-  }
+//   //replace all + with ,
+//   for (int i = 0; i < sdiResponse.length(); i++) {
+//     char c = sdiResponse.charAt(i);
+//     if (c == '+') {
+//       sdiResponse.setCharAt(i, ',');
+//     }
+//   }
 
-  //clear buffer
-  if (sdiResponse.length() > 1)
-    mySDI12.clearBuffer();
+//   //clear buffer
+//   if (sdiResponse.length() > 1)
+//     mySDI12.clearBuffer();
 
-  if (sdiResponse == "")
-    sdiResponse = "-9,-9,-9"; //no reading
+//   if (sdiResponse == "")
+//     sdiResponse = "-9,-9,-9"; //no reading
 
-  return sdiResponse;
-}
+//   return sdiResponse;
+// }
 
 /* Added to WeatherStation library */
 /*

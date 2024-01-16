@@ -10,8 +10,15 @@ includes support for blinky function
 #define WeatherStation_h
 
 #include "Arduino.h"
-#include "CSV_Parser.h" //needed to parse CSV files
+#include "CSV_Parser.h"         // Needed to parse CSV files
 #include "SD.h"
+#include <SDI12.h>              // Needed for SDI-12 communication
+
+/*SDI-12 sensor address, assumed to be 0*/
+#define SENSOR_ADDRESS 0
+
+/*Define Iridium seriel communication as Serial1 */
+#define IridiumSerial Serial1
 
 class WeatherStation
 {
@@ -26,11 +33,12 @@ class WeatherStation
         float sample_batt_v(); 
 
         //data sampling functions
-        //String sample_hydros_M(); //sample from hydros
+        String sample_hydros_M(); //sample from hydros
 
         //File dataFile; //file to hold the data - made local to write_to_csv() function
 
     private:
+
         // PIN NUMBERS
         byte chipSelect;
         byte SensorSetPin;
@@ -54,6 +62,9 @@ class WeatherStation
         String test_mode_string;
         int16_t *onstart_samples;
         uint16_t onstart_samples_16;
+
+        // LIBRARY INSTANCES
+        SDI12 mySDI12; 
 };
 
 #endif

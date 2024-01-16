@@ -23,6 +23,9 @@ WeatherStation::WeatherStation(String letters, String header){
     // set message preamble (letters/header)
     my_letter = letters;
     my_header = header;
+
+    // library instances assignment
+    SDI12 mySDI12 = SDI12(dataPin); 
 }
 
 void WeatherStation::begin(){
@@ -125,4 +128,63 @@ float WeatherStation::sample_batt_v(){
     pinMode(vbatPin, INPUT);
     float batt_v = (analogRead(vbatPin) * 2 * 3.3) / 1024;
     return batt_v;
+}
+
+String WeatherStation::sample_hydros_M(){
+    //moved from global to local variables (only used here)
+    String myCommand = "";
+    String sdiResponse = "";
+
+    myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
+
+    mySDI12.sendCommand(myCommand);
+    delay(30);  // wait a while for a response
+
+    while (mySDI12.available()) {  // build response string
+        char c = mySDI12.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);  // 1 character ~ 7.5ms
+        }
+    }
+
+    /*Clear buffer*/
+    if (sdiResponse.length() > 1)
+        mySDI12.clearBuffer();
+
+    delay(2000);       // delay between taking reading and requesting data
+    sdiResponse = "";  // clear the response string
+
+    // next command to request data from last measurement
+    myCommand = String(SENSOR_ADDRESS) + "D0!";
+
+    mySDI12.sendCommand(myCommand);
+    delay(30);  // wait a while for a response
+
+    while (mySDI12.available()) {  // build string from response (coming character by character along data bus)
+        char c = mySDI12.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);  // 1 character ~ 7.5ms
+        }
+    }
+
+    sdiResponse = sdiResponse.substring(3); //cut off the first 3 characters
+
+    //replace all + with ,
+    for (int i = 0; i < sdiResponse.length(); i++) {
+        char c = sdiResponse.charAt(i);
+        if (c == '+') {
+            sdiResponse.setCharAt(i, ',');
+        }
+    }
+
+    // clear buffer
+    if (sdiResponse.length() > 1)
+        mySDI12.clearBuffer();
+
+    if (sdiResponse == "")
+        sdiResponse = "-9,-9,-9"; // no reading
+
+    return sdiResponse;
 }
