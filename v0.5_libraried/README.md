@@ -10,6 +10,11 @@ Author: Rachel Pagdin
 
 ## Library add log: 
 
+### Jan 18, 2024:
+- general_purpose_hydros is entirely librarified --> will need to be taken back as too much stuff in run() --> not flexible for different sensors
+    - intended as starting point --> divide into different stages 
+
+
 ### Jan 15, 2024:
 - added sample_batt_v to library --> compiled successfully in general_purpose_hydros.ino
 - added sample_hydros_M to library --> compiled successfully in general_purpose_hydros.ino
