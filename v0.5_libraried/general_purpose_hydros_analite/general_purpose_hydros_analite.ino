@@ -332,12 +332,12 @@ String sample_analite_195() {
 
   if (wiper_cnt >= 5) {  // Probe will wipe after 6 power cycles (1 hr at 10 min interval)
 
-  digitalWrite(WiperSetPin, HIGH); delay(50); delay(100);
-  digitalWrite(WiperSetPin, LOW); delay(50); 
-  digitalWrite(WiperUnsetPin, HIGH); delay(50); 
-  digitalWrite(WiperUnsetPin, LOW); delay(50); delay(14000);  // wait for full rotation (about 6 seconds)
+    digitalWrite(WiperSetPin, HIGH); delay(50); delay(100);
+    digitalWrite(WiperSetPin, LOW); delay(50); 
+    digitalWrite(WiperUnsetPin, HIGH); delay(50); 
+    digitalWrite(WiperUnsetPin, LOW); delay(50); delay(14000);  // wait for full rotation (about 6 seconds)
 
-  wiper_cnt = 0;  // Reset wiper count to zero
+    wiper_cnt = 0;  // Reset wiper count to zero
     
   } else {
     wiper_cnt++;

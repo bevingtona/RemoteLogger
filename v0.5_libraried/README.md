@@ -2,8 +2,6 @@
 
 ### Note: files in libraries/WeatherStation are the current files for the WeatherStation library applied across the .ino files. Do not change the name of the libraries or WeatherStation directories
 
-### Note: Most comments, notes on code, and all edits to code are in general_purpose_hydros for the purpose of learning the code, testing compilation with libraries, etc.
-
 
 Author: Rachel Pagdin
 
@@ -16,6 +14,14 @@ Author: Rachel Pagdin
 - added sample_ott_M and sample_ott_V to library --> compiled successfully into general_purpose_ott.ino
 - general_purpose_ott compiled with library versions of everything except prep_msg, take_measurement, and parts of setup/loop that use take_measurement
     - prep_msg and take_measurement are sensor-dependent --> need some way to make it flexible before you can put into library (may not be worth it --> put helper functions in library and leave the sensor-specific part to each .ino file)
+    
+
+Notes: 
+- analite, ultrasonic (possibly others) have their own pin assignments for different things --> start setting as constants? (defined outside instances) --> might be easiest, give more descriptive names
+- general_purpose_hydros needs to be changed to allow re-generalization of prep_msg and take_measurement --> may need to remove from library
+    - change to helper functions in library, sensor-specific things in .ino files 
+    - will need to document how to use this
+
 
 ### Jan 15, 2024:
 - added sample_batt_v to library --> compiled successfully in general_purpose_hydros.ino
