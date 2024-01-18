@@ -11,6 +11,8 @@
 #include <MemoryFree.h>         // https://github.com/mpflaga/Arduino-MemoryFree
 #include <Adafruit_SleepyDog.h>
 
+#include <WeatherStation.h>
+
 /*Define global constants*/
 const byte chipSelect = 4;      // Chip select pin for SD card
 const byte SensorSetPin = 5;    //Power relay set pin to HYDROS21
@@ -50,16 +52,20 @@ File dataFile;                    // Setup a log file instance
 IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
 SDI12 mySDI12(dataPin);           // Define the SDI-12 bus
 QuickStats stats;                 // Instance of QuickStats
+WeatherStation ws(my_letter, my_header);      // Instance of custom library
 
+/**
+ * Used to check sensors, for onstart samples (both in setup) and to take measurements at intervals (in loop)
+*/
 String take_measurement() {
 
   digitalWrite(SensorSetPin, HIGH); delay(50);
   digitalWrite(SensorSetPin, LOW); delay(1000);
 
-  String msmt = String(sample_batt_v()) + "," + 
+  String msmt = String(ws.sample_batt_v()) + "," + 
     freeMemory() + "," + 
-    sample_ott_M() + "," + 
-    sample_ott_V();
+    ws.sample_ott_M() + "," + 
+    ws.sample_ott_V();
 
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
@@ -100,37 +106,11 @@ String prep_msg(){
 }
 
 void setup(void) {
-    
-  pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
-  pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
-  
-  pinMode(dataPin, INPUT); 
-
-  pinMode(SensorSetPin, OUTPUT); 
-  digitalWrite(SensorSetPin, HIGH); delay(50);
-  digitalWrite(SensorSetPin, LOW); delay(50);
-  
-  pinMode(SensorUnsetPin, OUTPUT);
-  digitalWrite(SensorUnsetPin, HIGH); delay(50);
-  digitalWrite(SensorUnsetPin, LOW); delay(50);
-
-  pinMode(IridPwrPin, OUTPUT);
-  digitalWrite(IridPwrPin, LOW); delay(50);
-
-  // START SDI-12 PROTOCOL
-  Serial.println(" - check sdi12");
-  mySDI12.begin();
-
-  // CHECK RTC
-  Serial.println(" - check clock");
-  while (!rtc.begin()) { blinky(1, 200, 200, 2000); }
-
-  // CHECK SD CARD
-  Serial.println(" - check card");
-  while (!SD.begin(chipSelect)) { blinky(2, 200, 200, 2000); }
+  // START UP
+  ws.start_and_set_pins();
 
   // READ PARAMS
-  read_params();
+  ws.read_params();
 
   if (test_mode_string == "T") {
 
@@ -152,12 +132,12 @@ void setup(void) {
     Serial.println("check sensors");
     String datastring_start = rtc.now().timestamp() + "," + take_measurement();
     Serial.print(" - "); Serial.println(datastring_start);
-    write_to_csv(my_header + ",comment", datastring_start + ", startup", "/DATA.csv");
-    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    ws.write_to_csv(my_header + ",comment", datastring_start + ", startup", "/DATA.csv");
+    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
     Serial.print(" - "); Serial.println(prep_msg());
 
     // ONSTART SAMPLES
@@ -166,11 +146,11 @@ void setup(void) {
     for (int i = 0; i < onstart_samples_16; i++) {
       String datastring_start = rtc.now().timestamp() + "," + take_measurement();
       Serial.print(" - "); Serial.println(datastring_start);
-      write_to_csv(my_header + ",comment", datastring_start + ",startup sample " + i, "/DATA.csv");
+      ws.write_to_csv(my_header + ",comment", datastring_start + ",startup sample " + i, "/DATA.csv");
     }
 
     Serial.println("check irid");
-    irid_test(datastring_start);
+    ws.irid_test(datastring_start);
 
     SD.remove("/HOURLY.csv");
 
@@ -188,7 +168,7 @@ void loop(void) {
   
   // BLINK INTERVAL, THEN SLEEP
   if (present_time.second() % 10 == 0){
-    blinky(1, 20, 200, 200);
+    ws.blinky(1, 20, 200, 200);
 
     // TAKE A SAMPLE AT INTERVAL 
     if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0){
@@ -196,17 +176,17 @@ void loop(void) {
       
       // SAVE TO HOURLY ON HOUR
       if(present_time.minute() == 0){
-        write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
+        ws.write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
 
         // SEND MESSAGE
         if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0){ 
           String msg = prep_msg();
-          int irid_err = send_msg(msg);
+          int irid_err = ws.send_msg(msg);
           SD.remove("/HOURLY.csv");
          }
       }
          
-      write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
+      ws.write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
       Watchdog.disable();
       Watchdog.enable(100);
       delay(200); // TRIGGER WATCHDOG
@@ -523,7 +503,7 @@ void irid_test(String msg) {
 void read_params() {
   CSV_Parser cp("ddsd", true, ',');
   Serial.println(" - check param.txt");
-  while (!cp.readSDfile("/PARAM.txt")) { blinky(3, 200, 200, 1000); }
+  while (!cp.readSDfile("/PARAM.txt")) { ws.blinky(3, 200, 200, 1000); }
   cp.parseLeftover();
 
   sample_freq_m = (int16_t *)cp["sample_freq_m"];
@@ -540,3 +520,4 @@ void read_params() {
   delete test_mode;
   delete onstart_samples;
 }
+

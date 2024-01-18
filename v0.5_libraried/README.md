@@ -13,7 +13,9 @@ Author: Rachel Pagdin
 ### Jan 18, 2024:
 - general_purpose_hydros is entirely librarified --> will need to be taken back as too much stuff in run() --> not flexible for different sensors
     - intended as starting point --> divide into different stages 
-
+- added sample_ott_M and sample_ott_V to library --> compiled successfully into general_purpose_ott.ino
+- general_purpose_ott compiled with library versions of everything except prep_msg, take_measurement, and parts of setup/loop that use take_measurement
+    - prep_msg and take_measurement are sensor-dependent --> need some way to make it flexible before you can put into library (may not be worth it --> put helper functions in library and leave the sensor-specific part to each .ino file)
 
 ### Jan 15, 2024:
 - added sample_batt_v to library --> compiled successfully in general_purpose_hydros.ino

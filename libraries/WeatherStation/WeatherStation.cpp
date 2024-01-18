@@ -22,6 +22,10 @@ WeatherStation::WeatherStation(String letters, String header){
     // set message preamble (letters/header)
     my_letter = letters;
     my_header = header;
+    
+    // global to control amount of memory used for reassigning these all the time
+    myCommand = "";
+    sdiResponse = "";
 
     // library instances assignment
     SDI12 mySDI12 = SDI12(dataPin); //needs to be instantiated here because it needs the value for dataPin; may be able to change if pin values are declared as const in .h file
@@ -119,6 +123,40 @@ void WeatherStation::begin(){
 
 }
 
+/**
+ * set the pins, test
+ * start SDI-12
+ * check RTC and SD card
+*/
+void WeatherStation::start_and_set_pins(){
+    pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
+    pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
+  
+    pinMode(dataPin, INPUT); 
+
+    pinMode(SensorSetPin, OUTPUT); 
+    digitalWrite(SensorSetPin, HIGH); delay(50);
+    digitalWrite(SensorSetPin, LOW); delay(50);
+  
+    pinMode(SensorUnsetPin, OUTPUT);
+    digitalWrite(SensorUnsetPin, HIGH); delay(50);
+    digitalWrite(SensorUnsetPin, LOW); delay(50);
+
+    pinMode(IridPwrPin, OUTPUT);
+    digitalWrite(IridPwrPin, LOW); delay(50);
+
+    // START SDI-12 PROTOCOL
+    Serial.println(" - check sdi12");
+    mySDI12.begin();
+
+    // CHECK RTC
+    Serial.println(" - check clock");
+    while (!rtc.begin()) { blinky(1, 200, 200, 2000); }
+
+    // CHECK SD CARD
+    Serial.println(" - check card");
+    while (!SD.begin(chipSelect)) { blinky(2, 200, 200, 2000); }
+}
 
 /**
  * call in loop(void)
@@ -166,6 +204,12 @@ void WeatherStation::run(){
 }
 
 void WeatherStation::read_params(){
+    //burner variables (delete at end)
+    int16_t *sample_freq_m;
+    int16_t *irid_freq_h;
+    char **test_mode;
+    int16_t *onstart_samples;
+
     CSV_Parser cp("ddsd", true, ',');
     Serial.println(" - check param.txt");
     while(!cp.readSDfile("/PARAM.txt")) { blinky(3, 200, 200, 1000); } //blink while reading the file from SD
@@ -264,9 +308,6 @@ float WeatherStation::sample_batt_v(){
 }
 
 String WeatherStation::sample_hydros_M(){
-    //moved from global to local variables (only used here)
-    String myCommand = "";
-    String sdiResponse = "";
 
     myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
 
@@ -318,6 +359,131 @@ String WeatherStation::sample_hydros_M(){
 
     if (sdiResponse == "")
         sdiResponse = "-9,-9,-9"; // no reading
+
+    return sdiResponse;
+}
+
+String WeatherStation::sample_ott_M(){
+
+    myCommand = String(SENSOR_ADDRESS) + "M!";// first command to take a measurement
+
+    mySDI12.sendCommand(myCommand);
+    delay(30);  // wait a while for a response
+
+    while (mySDI12.available()) {  // build response string
+        char c = mySDI12.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);  // 1 character ~ 7.5ms
+        }
+    }
+
+    /*Clear buffer*/
+    if (sdiResponse.length() > 1)
+        mySDI12.clearBuffer();
+
+    delay(2000);       // delay between taking reading and requesting data
+    sdiResponse = "";  // clear the response string
+
+
+    // next command to request data from last measurement
+    myCommand = String(SENSOR_ADDRESS) + "D0!";
+
+    mySDI12.sendCommand(myCommand);
+    delay(30);  // wait a while for a response
+
+    while (mySDI12.available()) {  // build string from response
+        char c = mySDI12.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);  // 1 character ~ 7.5ms
+        }
+    }
+
+    //subset responce
+    sdiResponse = sdiResponse.substring(3);
+
+    for (int i = 0; i < sdiResponse.length(); i++)
+    {
+
+        char c = sdiResponse.charAt(i);
+
+        if (c == '+')
+        {
+            sdiResponse.setCharAt(i, ',');
+        }
+
+    }
+
+    //clear buffer
+    if (sdiResponse.length() > 1)
+        mySDI12.clearBuffer();
+
+    if(sdiResponse == "")
+        sdiResponse = "-9,-9,-9";
+    
+    return sdiResponse;
+}
+
+String WeatherStation::sample_ott_V(){
+
+    myCommand = String(SENSOR_ADDRESS) + "V!";// first command to take a measurement
+
+    mySDI12.sendCommand(myCommand);
+    delay(30);  // wait a while for a response
+
+    while (mySDI12.available()) {  // build response string
+        char c = mySDI12.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);  // 1 character ~ 7.5ms
+        }
+    }
+
+    /*Clear buffer*/
+    if (sdiResponse.length() > 1)
+        mySDI12.clearBuffer();
+
+    delay(2000);       // delay between taking reading and requesting data
+    sdiResponse = "";  // clear the response string
+
+
+    // next command to request data from last measurement
+    myCommand = String(SENSOR_ADDRESS) + "D0!";
+
+    mySDI12.sendCommand(myCommand);
+    delay(30);  // wait a while for a response
+
+    while (mySDI12.available()) {  // build string from response
+        char c = mySDI12.read();
+        if(c == '-'){c = (char) ',';}    
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);  // 1 character ~ 7.5ms
+        }
+    }
+
+    //subset responce
+    sdiResponse = sdiResponse.substring(3);
+
+    for (int i = 0; i < sdiResponse.length(); i++)
+    {
+
+        char c = sdiResponse.charAt(i);
+
+        if (c == '+')
+        {
+            sdiResponse.setCharAt(i, ',');
+        }
+
+    }
+
+    //clear buffer
+    if (sdiResponse.length() > 1)
+        mySDI12.clearBuffer();
+    
+    if(sdiResponse == "")
+        sdiResponse = "-9,-9,-9";
 
     return sdiResponse;
 }

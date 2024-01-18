@@ -35,20 +35,28 @@ class WeatherStation
         WeatherStation(String letters, String header); // arguments possibly temporary (adjust how we indicate which sensors)
         void begin(); // to be called in setup()
         void run(); // to be called in loop()
+        void start_and_set_pins(); //  
 
         void read_params();
         void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms);
         void write_to_csv(String header, String datastring_for_csv, String outname);
-        String prep_msg();
+        String prep_msg(); //currently specific to general_purpose_hydros
         float sample_batt_v(); 
-        String take_measurement();
+        String take_measurement(); //currently specific to general_purpose_hydros
         void irid_test(String msg);
         int send_msg(String my_msg);
 
         //data sampling functions
         String sample_hydros_M(); //sample from hydros
+        String sample_ott_M();
+        String sample_ott_V();
 
-        //File dataFile; //file to hold the data - made local to write_to_csv() function
+        // PARAMETERS (from param file) 
+        //make these private for safety?
+        uint16_t sample_freq_m_16;
+        uint16_t irid_freq_h_16;
+        String test_mode_string;
+        uint16_t onstart_samples_16;
 
     private:
 
@@ -65,16 +73,9 @@ class WeatherStation
         //note: currently these are doubly represented - eventually want them to be user-determined (param file?)
         String my_letter;
         String my_header;
-        
-        // PARAMETERS (from param file)
-        int16_t *sample_freq_m;
-        uint16_t sample_freq_m_16;
-        int16_t *irid_freq_h;
-        uint16_t irid_freq_h_16;
-        char **test_mode;
-        String test_mode_string;
-        int16_t *onstart_samples;
-        uint16_t onstart_samples_16;
+
+        String myCommand;
+        String sdiResponse;
 
         // LIBRARY INSTANCES
         SDI12 mySDI12; 
