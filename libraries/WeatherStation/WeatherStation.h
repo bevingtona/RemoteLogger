@@ -11,7 +11,8 @@ includes support for blinky function
 
 #include "Arduino.h"
 #include "CSV_Parser.h"         // Needed to parse CSV files
-#include "SD.h"
+#include "SD.h"                 // Needed for SD card
+#include "SPI.h"                // Needed for SD card
 #include "SDI12.h"              // Needed for SDI-12 communication
 #include "MemoryFree.h"
 #include "RTClib.h"             // Needed for communication with Real Time Clock
@@ -24,7 +25,7 @@ includes support for blinky function
 /*SDI-12 sensor address, assumed to be 0*/
 #define SENSOR_ADDRESS 0
 
-/*Define Iridium seriel communication as Serial1 */
+/*Define Iridium serial communication as Serial1 */
 #define IridiumSerial Serial1
 
 class WeatherStation
@@ -32,7 +33,7 @@ class WeatherStation
     public:
         // basic weather station functions 
         WeatherStation(String letters, String header); // arguments possibly temporary (adjust how we indicate which sensors)
-        void begin(); // to be called in begin()
+        void begin(); // to be called in setup()
         void run(); // to be called in loop()
 
         void read_params();
