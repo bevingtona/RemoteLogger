@@ -1,8 +1,7 @@
 /*
 Version 0.1 of WeatherStation library for modular hydrometric weather stations 
 Author: Rachel Pagdin
-December 20, 2023
-includes support for blinky function
+January 25, 2024
 */
 
 #include "Arduino.h"
@@ -10,14 +9,6 @@ includes support for blinky function
 
 //constructor
 WeatherStation::WeatherStation(String letters, String header){
-    // values for pins on Feather M0 - now defined as public library constants
-    // chipSelect = 4;         // pin for SD card
-    // SensorSetPin = 5;       // Power relay set pin to HYDROS21
-    // SensorUnsetPin = 6;     // Power relay unset pin to HYDROS21
-    // led = 8;                // pin 8 is LED on Feather M0
-    // vbatPin = 9;            // batt pin
-    // dataPin = 12;           // pin for SDI-12 data bus
-    // IridPwrPin = 13;        // Power base PN222 2 transistor pin to Iridium modem
 
     // set message preamble (letters/header)
     my_letter = letters;
@@ -27,104 +18,12 @@ WeatherStation::WeatherStation(String letters, String header){
     myCommand = "";
     sdiResponse = "";
 
-    // library instances assignment
-    //SDI12 mySDI12 = SDI12(dataPin); //needs to be instantiated here because it needs the value for dataPin; may be able to change if pin values are declared as const in .h file
-
     // constants 
     blink_freq_s = 10;
     watchdog_timer = 30000;
 
     // global 
     analite_wiper_cnt = 0; 
-}
-
-/**
- * call in setup(void)
- * TODO: not flexible --> need to remove from library
-*/
-void WeatherStation::begin(){
-
-    //set Irid power and LED pins  
-    pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50); //Irid power pin (I think) - redundant, done below
-    pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
-  
-    //set SDI-12 data bus pin
-    pinMode(dataPin, INPUT); 
-
-    //sensor set and unset pins
-    pinMode(SensorSetPin, OUTPUT); 
-    digitalWrite(SensorSetPin, HIGH); delay(50);
-    digitalWrite(SensorSetPin, LOW); delay(50);
-  
-    pinMode(SensorUnsetPin, OUTPUT);
-    digitalWrite(SensorUnsetPin, HIGH); delay(50);
-    digitalWrite(SensorUnsetPin, LOW); delay(50);
-  
-    //set irid power (done above - IridPwrPin = 13)
-    pinMode(IridPwrPin, OUTPUT);
-    digitalWrite(IridPwrPin, LOW); delay(50);
-
-    // START SDI-12 PROTOCOL
-    Serial.println(" - check sdi12"); //note Serial is used for communication btwn board and computer/other device - basic Arduino library
-    mySDI12.begin();
-
-    // CHECK RTC (time)
-    Serial.println(" - check clock");
-    while (!rtc.begin()) { blinky(1, 200, 200, 2000); }
-
-    // CHECK SD CARD
-    Serial.println(" - check card");
-    while (!SD.begin(chipSelect)) { blinky(2, 200, 200, 2000); }
-
-    // READ PARAMS
-    read_params();
-
-    if (test_mode_string == "T") {
-
-        SD.remove("/HOURLY.csv");
-
-        delay(3000);
-        Serial.begin(9600);
-        Serial.println("###########################################");
-        Serial.println("starting");
-
-        Serial.println("check params");
-        Serial.print(" - sample_freq_m_16: "); Serial.println(sample_freq_m_16);
-        Serial.print(" - irid_freq_h_16: "); Serial.println(irid_freq_h_16);
-        Serial.print(" - test_mode_string: "); Serial.println(test_mode_string);
-        Serial.print(" - onstart_samples_16: "); Serial.println(onstart_samples_16);
-
-        // CHECK SENSORS
-        Serial.println("check sensors");
-        String datastring_start = rtc.now().timestamp() + "," + take_measurement();
-        Serial.print(" - "); Serial.println(datastring_start);
-        write_to_csv(my_header + ",comment", datastring_start + ", startup", "/DATA.csv");
-        write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-        write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-        write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-        write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-        write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-        Serial.print(" - "); Serial.println(prep_msg());
-
-        // ONSTART SAMPLES
-        Serial.println("check onstart samples");
-        Serial.print(" - "); Serial.println(my_header);
-        for (int i = 0; i < onstart_samples_16; i++) {
-            String datastring_start = rtc.now().timestamp() + "," + take_measurement();
-            Serial.print(" - "); Serial.println(datastring_start);
-            write_to_csv(my_header + ",comment", datastring_start + ",startup sample " + i, "/DATA.csv");
-        }
-  
-        Serial.println("check irid");
-        irid_test(datastring_start);
-  
-        SD.remove("/HOURLY.csv");
-    }
-
-    Serial.println("Awaiting delayed start ...");
-
-    int countdownMS = Watchdog.enable(watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
-
 }
 
 /**
@@ -160,51 +59,6 @@ void WeatherStation::check_clock(){
     while (!rtc.begin()) { blinky(1, 200, 200, 2000); }
 }
 
-/**
- * call in loop(void)
- * TODO: not flexible --> need to remove from library
-*/
-void WeatherStation::run(){
-
-    DateTime present_time = rtc.now(); // WAKE UP, WHAT TIME IS IT?
-  
-    // BLINK INTERVAL, THEN SLEEP
-    if (present_time.second() % 10 == 0){
-        blinky(1, 20, 200, 200);
-    
-        // TAKE A SAMPLE AT INTERVAL 
-        if (present_time.minute() % sample_freq_m_16 == 0 & present_time.second() == 0){
-            String sample = take_measurement();
-            Watchdog.reset();
-      
-            // SAVE TO HOURLY ON HOUR
-            if(present_time.minute() == 0){
-                write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
-
-                // SEND MESSAGE
-                if (present_time.minute() == 0 & present_time.hour() % irid_freq_h_16 == 0){ 
-                    String msg = prep_msg();
-                    int irid_err = send_msg(msg);
-                    SD.remove("/HOURLY.csv");
-
-                }
-            }
-         
-            write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
-            Watchdog.disable();
-            Watchdog.enable(100);
-            delay(200); // TRIGGER WATCHDOG
-
-        }
-    
-        DateTime sample_end = rtc.now();
-        uint32_t sleep_time = ((blink_freq_s - (sample_end.second() % blink_freq_s)) * 1000.0) - 1000;
-        LowPower.sleep(sleep_time);
-    }
-  
-    Watchdog.reset();
-    delay(500); // Half second to make sure we do not skip a second
-}
 
 void WeatherStation::read_params(){
     //burner variables (delete at end)
