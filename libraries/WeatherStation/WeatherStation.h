@@ -36,6 +36,9 @@ class WeatherStation
         void begin(); // to be called in setup() --> take out
         void run(); // to be called in loop() --> take out
         void start_checks(); // start up data bus protocol, check SD and RTC  
+        void start_data_bus();
+        void check_card();
+        void check_clock();
 
         void read_params();
         void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms);
@@ -51,6 +54,7 @@ class WeatherStation
         String sample_ott_M();              // sample from OTT      /** TODO: ask Alex what these do for documentation */
         String sample_ott_V();              // sample from OTT 
         String sample_analite_195();        // sample from Analite
+        long sample_ultrasonic();           // sample from ultrasonic
 
         // PARAMETERS (from param file) 
         //make these private for safety?
@@ -83,6 +87,8 @@ class WeatherStation
         const byte ULTRASONIC_TRIGGER_PIN = 10;     // Range start / stop pin for MaxBotix MB7369 ultrasonic ranger
         const byte ULTRASONIC_PULSE_PIN = 12;       // Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger -- this is just the SDI data bus pin
         const byte ULTRASONIC_PWR_PIN = 11;         // Power for ultrasonic ranger -- for low power ultrasonic (turns on to measure)
+        const byte ULTRASONIC_SET_PIN = 5;          // Power relay set pin to ultrasonic ranger
+        const byte ULTRASONIC_UNSET_PIN = 6;        // Power relay unset pin to ultrasonic ranger
 
         // LIBRARY INSTANCES
         SDI12 mySDI12 = SDI12(DATA_PIN); 

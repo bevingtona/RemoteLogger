@@ -128,24 +128,36 @@ void WeatherStation::begin(){
 }
 
 /**
- * TODO: set the pins, test -- not flexible, need to remove this part from library (sensor-specific)
+ * Standard startup
  * start SDI-12
  * check RTC and SD card
 */
 void WeatherStation::start_checks(){
-    
-
     // START SDI-12 PROTOCOL
-    Serial.println(" - check sdi12");
-    mySDI12.begin();
+    start_data_bus();
 
     // CHECK RTC
-    Serial.println(" - check clock");
-    while (!rtc.begin()) { blinky(1, 200, 200, 2000); }
+    check_clock();
 
     // CHECK SD CARD
+    check_card();
+}
+
+/**
+ * Individual start/check functions 
+ * if calling all three can use start_checks()
+*/
+void WeatherStation::start_data_bus(){
+    Serial.println(" - check sdi12");
+    mySDI12.begin();
+}
+void WeatherStation::check_card(){
     Serial.println(" - check card");
-    while (!SD.begin(chipSelect)) { blinky(2, 200, 200, 2000); }
+    while (!SD.begin(SD_CHIP_SELECT_PIN)) { blinky(2, 200, 200, 2000); }
+}
+void WeatherStation::check_clock(){
+    Serial.println(" - check clock");
+    while (!rtc.begin()) { blinky(1, 200, 200, 2000); }
 }
 
 /**
@@ -521,6 +533,30 @@ String WeatherStation::sample_analite_195(){
     analogReadResolution(10); //back to default
 
     return String(ntu_int);
+}
+
+/**
+ * Ultrasonic ranging (distance)
+*/
+long WeatherStation::sample_ultrasonic(){
+    int n = 10; //number of samples
+
+    pinMode(ULTRASONIC_TRIGGER_PIN, OUTPUT);       //Set ultrasonic ranging trigger pin as OUTPUT
+    pinMode(ULTRASONIC_PULSE_PIN, INPUT);          //Set ultrasonic pulse width pin as INPUT
+    
+    float values[n];          //Array for storing sampled distances
+    
+    digitalWrite(ULTRASONIC_TRIGGER_PIN, HIGH);  //Write the ranging trigger pin HIGH
+    delay(30);    
+    for (int16_t i = 0; i < n; i++)  //Take N samples
+    {
+        int32_t duration = pulseIn(ULTRASONIC_PULSE_PIN, HIGH);  //Get the pulse duration (i.e.,time of flight)
+        values[i] = duration;
+        delay(150);  //Dont sample too quickly < 7.5 Htz
+    }
+    long med_distance = stats.minimum(values, n);  //Copute median distance
+    digitalWrite(ULTRASONIC_TRIGGER_PIN, LOW);  //Write the ranging trigger pin LOW
+    return med_distance;
 }
 
 /**

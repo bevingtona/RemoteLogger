@@ -11,6 +11,8 @@
 #include <MemoryFree.h>
 #include <Adafruit_SleepyDog.h>
 
+#include <WeatherStation.h>
+
 /*Define global constants*/
 const byte chipSelect = 4;          // Chip select pin for SD card
 const byte led = 8;                 // Built in led pin
@@ -45,6 +47,7 @@ String sdiResponse = "";  // SDI-12 responce var
 #define SENSOR_ADDRESS 0
 
 /*Create library instances*/
+WeatherStation ws(my_letters, my_header);
 RTC_PCF8523 rtc;                  // Setup a PCF8523 Real Time Clock instance (may have to change this to more precise DS3231)
 File dataFile;                    // Setup a log file instance
 IridiumSBD modem(IridiumSerial, IridSlpPin);  // Declare the IridiumSBD object
@@ -56,7 +59,7 @@ String take_measurement() {
 
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," +
-    sample_ultrasonic();
+    ws.sample_ultrasonic();
   
   digitalWrite(ultrasonicPowerPin, LOW); delay(50);
 

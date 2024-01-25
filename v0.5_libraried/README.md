@@ -12,13 +12,14 @@ Author: Rachel Pagdin
 - constants for pin numbers (specific to board --> needs to be documented)
 - general_purpose_ott.ino compiled with more reasonable flexibility of library (as opposed to general_purpose_hydros, which is over-librarified)
 - added sample_analite_95 to library --> compiled successfully in general_purpose_hydros_analite.ino
-
+- added sample_ultrasonic to library --> compiled successfully in general_purpose_ultrasonic_sleep.ino
 
 Notes:
 - may eventually be able to force implementation of necessary functions (i.e. take_measurement, prep_msg) using inheritance --> too much coupling? better to use params to select measurements to take?
 - leaving loop mainly user-determined --> not much benefit in adding to library
 - prep_msg should be standardized in the library at some point
     - need to determine how to customize measurements
+- ultrasonic ranger does not use SDI-12 data bus for measurements --> made separate functions to start SDI-12, check SD card, and check real-time clock 
 
 
 ### Jan 18, 2024:
