@@ -1,4 +1,6 @@
 /**
+ * January 25, 2024: fully converted to use WeatherStation library
+ * 
  * OTT is a water level logger (I think)
  * water level, water temp, conductivity
 */

@@ -1,4 +1,6 @@
 /**
+ * January 25, 2024: fully converted to use WeatherStation library
+ * 
  * Hydros21: water level, water temp, electrical conductivity (same as OTT?)
  * Analite 195: turbidity (NTU)
 */

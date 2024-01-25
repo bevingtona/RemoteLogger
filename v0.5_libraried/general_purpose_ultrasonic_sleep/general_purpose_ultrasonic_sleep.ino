@@ -1,4 +1,6 @@
 /**
+ * January 25, 2024: fully converted to use WeatherStation library
+ * 
  * Ultrasonic ranger measures water level
 */
 
@@ -8,7 +10,6 @@
 #include <SPI.h>              //Needed for working with SD card
 #include <SD.h>               //Needed for working with SD card
 #include <ArduinoLowPower.h>  //Needed for putting Feather M0 to sleep between samples
-//#include <IridiumSBD.h>       //Needed for communication with IRIDIUM modem
 #include <CSV_Parser.h>       //Needed for parsing CSV data
 #include <SDI12.h>            //Needed for SDI-12 communication
 #include <QuickStats.h>       // Stats
@@ -17,46 +18,15 @@
 
 #include <WeatherStation.h>
 
-/*Define global constants*/
-// const byte chipSelect = 4;      // Chip select pin for SD card
-// const byte SensorSetPin = 5;    //Power relay set pin to ultrasonic ranger
-// const byte SensorUnsetPin = 6;  //Power relay unset pin to HYDROS21
-// const byte led = 8;             // Built in led pin
-// const byte vbatPin = 9;         // Batt pin
-// const byte triggerPin = 10;     // Range start / stop pin for MaxBotix MB7369 ultrasonic ranger
-// const byte pulsePin = 12;       // Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger
-// const byte IridSlpPin = 13;     // Power base PN2222 transistor pin to Iridium modem, same as IridPwrPin
-
 /*Define global vars */
 String my_letter = "A";
 String my_header = "datetime,batt_v,memory,water_level_mm";
-// int16_t *sample_freq_m;
-// uint16_t sample_freq_m_16;
-// int16_t *irid_freq_h;
-// uint16_t irid_freq_h_16;
-// char **test_mode;
-// String test_mode_string;
-// int16_t *onstart_samples;
-// uint16_t onstart_samples_16;
-
-// uint16_t blink_freq_s = 10;
-// uint16_t watchdog_timer = 30000;
 
 String myCommand = "";    // SDI-12 command var
 String sdiResponse = "";  // SDI-12 responce var
 
-/*Define Iridium seriel communication as Serial1 */
-// #define IridiumSerial Serial1
-
-/*SDI-12 sensor address, assumed to be 0*/
-// #define SENSOR_ADDRESS 0
-
 /*Create library instances*/
 WeatherStation ws(my_letter, my_header);
-// RTC_PCF8523 rtc;                  // Setup a PCF8523 Real Time Clock instance (may have to change this to more precise DS3231)
-// File dataFile;                    // Setup a log file instance
-// IridiumSBD modem(IridiumSerial, IridSlpPin);  // Declare the IridiumSBD object
-// QuickStats stats;                 // Instance of QuickStats
 
 String take_measurement() {
 

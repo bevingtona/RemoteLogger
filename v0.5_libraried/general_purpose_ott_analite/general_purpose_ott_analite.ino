@@ -1,3 +1,7 @@
+/**
+ * January 25, 2024: not converted to use library, functionality supported in library
+*/
+
 /*Include the libraries we need*/
 #include <time.h>
 #include <RTClib.h>             //Needed for communication with Real Time Clock

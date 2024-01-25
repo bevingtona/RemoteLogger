@@ -1,3 +1,7 @@
+/**
+ * January 25, 2024: not converted to use library, functionality supported in library
+*/
+
 /*Include the libraries we need*/
 #include <time.h>
 #include "RTClib.h"           //Needed for communication with Real Time Clock
@@ -18,7 +22,7 @@ const byte chipSelect = 4;          // Chip select pin for SD card
 const byte led = 8;                 // Built in led pin
 const byte vbatPin = 9;             // Batt pin
 const byte triggerPin = 10;         //Range start / stop pin for MaxBotix MB7369 ultrasonic ranger
-const byte ultrasonicPowerPin = 11; //Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger
+const byte ultrasonicPowerPin = 11; //Power pin for ultrasonic (for low power)
 const byte pulsePin = 12;           //Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger
 const byte IridSlpPin = 13;         // Power base PN2222 transistor pin to Iridium modem
 
@@ -55,13 +59,13 @@ QuickStats stats;                 // Instance of QuickStats
 
 String take_measurement() {
 
-  digitalWrite(ultrasonicPowerPin, HIGH); delay(500);
+  digitalWrite(ws.ULTRASONIC_PWR_PIN, HIGH); delay(500);
 
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," +
     ws.sample_ultrasonic();
   
-  digitalWrite(ultrasonicPowerPin, LOW); delay(50);
+  digitalWrite(ws.ULTRASONIC_PWR_PIN, LOW); delay(50);
 
   return msmt;
 }

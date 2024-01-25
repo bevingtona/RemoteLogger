@@ -14,6 +14,7 @@ Author: Rachel Pagdin
 - added sample_analite_95 to library --> compiled successfully in general_purpose_hydros_analite.ino
 - added sample_ultrasonic to library --> compiled successfully in general_purpose_ultrasonic_sleep.ino
 - got rid of overspecific begin() and run() functions --> fixed general_purpose_hydros.ino
+- MILESTONE: library contains all functionality to convert all .ino files in v0.5_libraried folder (7 options), not all converted but easily could be (left to save time, since things need to be changed anyway re: watchdog, params, etc)
 
 Notes:
 - may eventually be able to force implementation of necessary functions (i.e. take_measurement, prep_msg) using inheritance --> too much coupling? better to use params to select measurements to take?
