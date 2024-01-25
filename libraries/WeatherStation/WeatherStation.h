@@ -58,6 +58,16 @@ class WeatherStation
         String test_mode_string;
         uint16_t onstart_samples_16;
 
+        // PIN NUMBERS
+        // board-specific constants 
+        const byte LED_PIN = 8;                 // Built-in LED pin
+        const byte BATT_PIN = 9;                // Battery pin
+        const byte DATA_PIN = 12;               // The pin of the SDI-12 data bus
+        const byte SD_CHIP_SELECT_PIN = 4;          // Chip select pin for SD card
+        const byte HYDROS_SET_PIN = 5;          // Power relay set pin to HYDROS21
+        const byte HYDROS_UNSET_PIN = 6;        // Power relay unset pin to HYDROS21
+        const byte IRID_POWER_PIN = 13;         // Power base PN2222 transistor pin to Iridium modem
+
     private:
 
         // PIN NUMBERS

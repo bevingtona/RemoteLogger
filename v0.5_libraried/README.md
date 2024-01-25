@@ -8,6 +8,10 @@ Author: Rachel Pagdin
 
 ## Library add log: 
 
+### Jan 24-25, 2024:
+- constants for pin numbers (specific to board --> needs to be documented)
+
+
 ### Jan 18, 2024:
 - general_purpose_hydros is entirely librarified --> will need to be taken back as too much stuff in run() --> not flexible for different sensors
     - intended as starting point --> divide into different stages 

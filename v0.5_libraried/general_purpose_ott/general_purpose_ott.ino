@@ -47,12 +47,13 @@ String sdiResponse = "";  // SDI-12 responce var
 #define SENSOR_ADDRESS 0
 
 /*Create library instances*/
+WeatherStation ws(my_letter, my_header);      // Instance of custom library
 RTC_PCF8523 rtc;                  // Setup a PCF8523 Real Time Clock instance (may have to change this to more precise DS3231)
 File dataFile;                    // Setup a log file instance
 IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
-SDI12 mySDI12(dataPin);           // Define the SDI-12 bus
+SDI12 mySDI12(ws.DATA_PIN);           // Define the SDI-12 bus
 QuickStats stats;                 // Instance of QuickStats
-WeatherStation ws(my_letter, my_header);      // Instance of custom library
+
 
 /**
  * Used to check sensors, for onstart samples (both in setup) and to take measurements at intervals (in loop)
