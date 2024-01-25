@@ -10,7 +10,8 @@ Author: Rachel Pagdin
 
 ### Jan 24-25, 2024:
 - constants for pin numbers (specific to board --> needs to be documented)
-- general_purpose_ott compiled with more reasonable flexibility of library (as opposed to general_purpose_hydros, which is over-librarified)
+- general_purpose_ott.ino compiled with more reasonable flexibility of library (as opposed to general_purpose_hydros, which is over-librarified)
+- added sample_analite_95 to library --> compiled successfully in general_purpose_hydros_analite.ino
 
 
 Notes:

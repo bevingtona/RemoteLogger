@@ -47,9 +47,10 @@ class WeatherStation
         int send_msg(String my_msg);
 
         //data sampling functions
-        String sample_hydros_M(); //sample from hydros
-        String sample_ott_M();
-        String sample_ott_V();
+        String sample_hydros_M();           // sample from Hydros
+        String sample_ott_M();              // sample from OTT      /** TODO: ask Alex what these do for documentation */
+        String sample_ott_V();              // sample from OTT 
+        String sample_analite_195();        // sample from Analite
 
         // PARAMETERS (from param file) 
         //make these private for safety?
@@ -61,8 +62,8 @@ class WeatherStation
         uint16_t blink_freq_s;
         uint16_t watchdog_timer;
 
-        RTC_PCF8523 get_clock();
-
+        // GLOBAL VARIABLES
+        int analite_wiper_cnt;
 
         // PIN NUMBERS
         /* board-specific constants (Feather M0) */

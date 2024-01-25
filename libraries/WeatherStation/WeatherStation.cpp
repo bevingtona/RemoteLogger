@@ -33,6 +33,9 @@ WeatherStation::WeatherStation(String letters, String header){
     // constants 
     blink_freq_s = 10;
     watchdog_timer = 30000;
+
+    // global 
+    analite_wiper_cnt = 0; 
 }
 
 /**
@@ -477,6 +480,47 @@ String WeatherStation::sample_ott_V(){
         sdiResponse = "-9,-9,-9";
 
     return sdiResponse;
+}
+
+/**
+ * Analite 105 measures turbidity in NTU (Nephelometric Turbidity Units)
+*/
+String WeatherStation::sample_analite_195(){
+
+    analogReadResolution(12);
+
+    float values[10];  //Array for storing sampled distances
+
+    if (analite_wiper_cnt >= 5) {  // Probe will wipe after 6 power cycles (1 hr at 10 min interval)
+
+        digitalWrite(ANALITE_WIPER_SET_PIN, HIGH); delay(50); delay(100);
+        digitalWrite(ANALITE_WIPER_SET_PIN, LOW); delay(50); 
+        digitalWrite(ANALITE_WIPER_UNSET_PIN, HIGH); delay(50); 
+        digitalWrite(ANALITE_WIPER_UNSET_PIN, LOW); delay(50); delay(14000);  // wait for full rotation (about 6 seconds)
+
+        analite_wiper_cnt = 0;  // Reset wiper count to zero
+    
+    } else {
+        analite_wiper_cnt++;
+        digitalWrite(ANALITE_WIPER_UNSET_PIN, HIGH); delay(20);  // Unnecessary, but good to double check it's off
+        digitalWrite(ANALITE_WIPER_UNSET_PIN, LOW); delay(20);
+    }
+
+    for (int i = 0; i < 10; i++) {
+        values[i] = (float)analogRead(ANALITE_TURB_ANALOG);  // Read analog value from probe
+        delay(5);
+    }
+
+    float med_turb_alog = stats.median(values, 10);  // Compute median 12-bit analog val
+
+    //Convert analog value (0-4096) to NTU from provided linear calibration coefficients
+    float ntu_analog = med_turb_alog;  //(m * med_turb_alog) + b;
+
+    int ntu_int = round(ntu_analog);
+
+    analogReadResolution(10); //back to default
+
+    return String(ntu_int);
 }
 
 /**
