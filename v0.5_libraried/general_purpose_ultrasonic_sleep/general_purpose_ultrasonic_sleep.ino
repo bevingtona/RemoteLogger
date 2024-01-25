@@ -17,9 +17,9 @@ const byte SensorSetPin = 5;    //Power relay set pin to HYDROS21
 const byte SensorUnsetPin = 6;  //Power relay unset pin to HYDROS21
 const byte led = 8;             // Built in led pin
 const byte vbatPin = 9;         // Batt pin
-const byte triggerPin = 10; //Range start / stop pin for MaxBotix MB7369 ultrasonic ranger
-const byte pulsePin = 12; //Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger
-const byte IridSlpPin = 13;     // Power base PN2222 transistor pin to Iridium modem
+const byte triggerPin = 10;     // Range start / stop pin for MaxBotix MB7369 ultrasonic ranger
+const byte pulsePin = 12;       // Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger
+const byte IridSlpPin = 13;     // Power base PN2222 transistor pin to Iridium modem, same as IridPwrPin
 
 /*Define global vars */
 String my_letter = "A";

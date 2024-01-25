@@ -8,3 +8,4 @@ paperwork/
 !libraries/
 libraries/*
 !libraries/WeatherStation
+v0.5_libraried/weather_stations.code-workspace

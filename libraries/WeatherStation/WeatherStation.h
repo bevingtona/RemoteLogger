@@ -33,9 +33,9 @@ class WeatherStation
     public:
         // basic weather station functions 
         WeatherStation(String letters, String header); // arguments possibly temporary (adjust how we indicate which sensors)
-        void begin(); // to be called in setup()
-        void run(); // to be called in loop()
-        void start_and_set_pins(); //  
+        void begin(); // to be called in setup() --> take out
+        void run(); // to be called in loop() --> take out
+        void start_checks(); // start up data bus protocol, check SD and RTC  
 
         void read_params();
         void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms);
@@ -57,17 +57,38 @@ class WeatherStation
         uint16_t irid_freq_h_16;
         String test_mode_string;
         uint16_t onstart_samples_16;
+        // CONSTANTS
+        uint16_t blink_freq_s;
+        uint16_t watchdog_timer;
+
+        RTC_PCF8523 get_clock();
+
 
         // PIN NUMBERS
-        // board-specific constants 
-        const byte LED_PIN = 8;                 // Built-in LED pin
-        const byte BATT_PIN = 9;                // Battery pin
-        const byte DATA_PIN = 12;               // The pin of the SDI-12 data bus
+        /* board-specific constants (Feather M0) */
+        const byte LED_PIN = 8;                     // Built-in LED pin
+        const byte BATT_PIN = 9;                    // Battery pin
+        const byte DATA_PIN = 12;                   // The pin of the SDI-12 data bus (usually carries data from sensor)
         const byte SD_CHIP_SELECT_PIN = 4;          // Chip select pin for SD card
-        const byte HYDROS_SET_PIN = 5;          // Power relay set pin to HYDROS21
-        const byte HYDROS_UNSET_PIN = 6;        // Power relay unset pin to HYDROS21
-        const byte IRID_POWER_PIN = 13;         // Power base PN2222 transistor pin to Iridium modem
+        const byte IRID_POWER_PIN = 13;             // Power base PN2222 transistor pin to Iridium modem
+        /* sensor-specific pins */
+        const byte HYDROS_SET_PIN = 5;              // Power relay set pin to HYDROS21
+        const byte HYDROS_UNSET_PIN = 6;            // Power relay unset pin to HYDROS21
+        const byte OTT_SET_PIN = 5;                 // Power relay set pin to OTT 
+        const byte OTT_UNSET_PIN = 6;               // Power relay unset pin to OTT 
+        const byte ANALITE_WIPER_SET_PIN = 10;      // Pin to set wiper for analite probe 
+        const byte ANALITE_WIPER_UNSET_PIN = 11;    // Pin to unset wiper for analite probe
+        const byte ANALITE_TURB_ANALOG = A1;        // Pin for reading analog outout from voltage divder (R1=1000 Ohm, R2=5000 Ohm) conncted to Analite
+        const byte ULTRASONIC_TRIGGER_PIN = 10;     // Range start / stop pin for MaxBotix MB7369 ultrasonic ranger
+        const byte ULTRASONIC_PULSE_PIN = 12;       // Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger -- this is just the SDI data bus pin
+        const byte ULTRASONIC_PWR_PIN = 11;         // Power for ultrasonic ranger -- for low power ultrasonic (turns on to measure)
 
+        // LIBRARY INSTANCES
+        SDI12 mySDI12 = SDI12(DATA_PIN); 
+        RTC_PCF8523 rtc;
+        IridiumSBD modem = IridiumSBD(IridiumSerial);
+        QuickStats stats;
+    
     private:
 
         // PIN NUMBERS
@@ -87,16 +108,6 @@ class WeatherStation
         String myCommand;
         String sdiResponse;
 
-        // LIBRARY INSTANCES
-        SDI12 mySDI12; 
-        RTC_PCF8523 rtc;
-        IridiumSBD modem = IridiumSBD(IridiumSerial);
-        QuickStats stats;
-
-        // CONSTANTS
-        uint16_t blink_freq_s;
-        uint16_t watchdog_timer;
-        
 };
 
 #endif

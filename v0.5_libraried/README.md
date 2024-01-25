@@ -10,6 +10,14 @@ Author: Rachel Pagdin
 
 ### Jan 24-25, 2024:
 - constants for pin numbers (specific to board --> needs to be documented)
+- general_purpose_ott compiled with more reasonable flexibility of library (as opposed to general_purpose_hydros, which is over-librarified)
+
+
+Notes:
+- may eventually be able to force implementation of necessary functions (i.e. take_measurement, prep_msg) using inheritance --> too much coupling? better to use params to select measurements to take?
+- leaving loop mainly user-determined --> not much benefit in adding to library
+- prep_msg should be standardized in the library at some point
+    - need to determine how to customize measurements
 
 
 ### Jan 18, 2024:

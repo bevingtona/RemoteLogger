@@ -12,13 +12,13 @@
 #include <Adafruit_SleepyDog.h>
 
 /*Define global constants*/
-const byte chipSelect = 4;      // Chip select pin for SD card
-const byte led = 8;             // Built in led pin
-const byte vbatPin = 9;         // Batt pin
-const byte triggerPin = 10; //Range start / stop pin for MaxBotix MB7369 ultrasonic ranger
+const byte chipSelect = 4;          // Chip select pin for SD card
+const byte led = 8;                 // Built in led pin
+const byte vbatPin = 9;             // Batt pin
+const byte triggerPin = 10;         //Range start / stop pin for MaxBotix MB7369 ultrasonic ranger
 const byte ultrasonicPowerPin = 11; //Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger
-const byte pulsePin = 12; //Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger
-const byte IridSlpPin = 13;     // Power base PN2222 transistor pin to Iridium modem
+const byte pulsePin = 12;           //Pulse width pin for reading pw from MaxBotix MB7369 ultrasonic ranger
+const byte IridSlpPin = 13;         // Power base PN2222 transistor pin to Iridium modem
 
 /*Define global vars */
 String my_letter = "E";

@@ -10,14 +10,14 @@ includes support for blinky function
 
 //constructor
 WeatherStation::WeatherStation(String letters, String header){
-    // values for pins on Feather M0
-    chipSelect = 4;         // pin for SD card
-    SensorSetPin = 5;       // Power relay set pin to HYDROS21
-    SensorUnsetPin = 6;     // Power relay unset pin to HYDROS21
-    led = 8;                // pin 8 is LED on Feather M0
-    vbatPin = 9;            // batt pin
-    dataPin = 12;           // pin for SDI-12 data bus
-    IridPwrPin = 13;        // Power base PN222 2 transistor pin to Iridium modem
+    // values for pins on Feather M0 - now defined as public library constants
+    // chipSelect = 4;         // pin for SD card
+    // SensorSetPin = 5;       // Power relay set pin to HYDROS21
+    // SensorUnsetPin = 6;     // Power relay unset pin to HYDROS21
+    // led = 8;                // pin 8 is LED on Feather M0
+    // vbatPin = 9;            // batt pin
+    // dataPin = 12;           // pin for SDI-12 data bus
+    // IridPwrPin = 13;        // Power base PN222 2 transistor pin to Iridium modem
 
     // set message preamble (letters/header)
     my_letter = letters;
@@ -28,7 +28,7 @@ WeatherStation::WeatherStation(String letters, String header){
     sdiResponse = "";
 
     // library instances assignment
-    SDI12 mySDI12 = SDI12(dataPin); //needs to be instantiated here because it needs the value for dataPin; may be able to change if pin values are declared as const in .h file
+    //SDI12 mySDI12 = SDI12(dataPin); //needs to be instantiated here because it needs the value for dataPin; may be able to change if pin values are declared as const in .h file
 
     // constants 
     blink_freq_s = 10;
@@ -37,6 +37,7 @@ WeatherStation::WeatherStation(String letters, String header){
 
 /**
  * call in setup(void)
+ * TODO: not flexible --> need to remove from library
 */
 void WeatherStation::begin(){
 
@@ -124,26 +125,12 @@ void WeatherStation::begin(){
 }
 
 /**
- * set the pins, test
+ * TODO: set the pins, test -- not flexible, need to remove this part from library (sensor-specific)
  * start SDI-12
  * check RTC and SD card
 */
-void WeatherStation::start_and_set_pins(){
-    pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
-    pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
-  
-    pinMode(dataPin, INPUT); 
-
-    pinMode(SensorSetPin, OUTPUT); 
-    digitalWrite(SensorSetPin, HIGH); delay(50);
-    digitalWrite(SensorSetPin, LOW); delay(50);
-  
-    pinMode(SensorUnsetPin, OUTPUT);
-    digitalWrite(SensorUnsetPin, HIGH); delay(50);
-    digitalWrite(SensorUnsetPin, LOW); delay(50);
-
-    pinMode(IridPwrPin, OUTPUT);
-    digitalWrite(IridPwrPin, LOW); delay(50);
+void WeatherStation::start_checks(){
+    
 
     // START SDI-12 PROTOCOL
     Serial.println(" - check sdi12");
@@ -160,6 +147,7 @@ void WeatherStation::start_and_set_pins(){
 
 /**
  * call in loop(void)
+ * TODO: not flexible --> need to remove from library
 */
 void WeatherStation::run(){
 
@@ -264,6 +252,9 @@ void WeatherStation::write_to_csv(String header, String datastring_for_csv, Stri
   }
 }
 
+/**
+ * TODO: specific to hydros --> need to take out of library
+*/
 String WeatherStation::prep_msg(){
 
     SD.begin(chipSelect);
@@ -488,6 +479,9 @@ String WeatherStation::sample_ott_V(){
     return sdiResponse;
 }
 
+/**
+ * specific to hydros --> need to take out of library
+*/
 String WeatherStation::take_measurement(){
     digitalWrite(SensorSetPin, HIGH); delay(50);
     digitalWrite(SensorSetPin, LOW); delay(1000);
@@ -635,3 +629,5 @@ int WeatherStation::send_msg(String my_msg){
     digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
     return err;    
 }
+
+
