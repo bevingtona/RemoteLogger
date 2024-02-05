@@ -7,5 +7,5 @@ paperwork/
 
 !libraries/
 libraries/*
-!libraries/WeatherStation
+!libraries/RemoteLogger
 v0.5_libraried/weather_stations.code-workspace
