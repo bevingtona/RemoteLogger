@@ -15,7 +15,7 @@
 #include <MemoryFree.h>
 #include <Adafruit_SleepyDog.h>
 
-#include <WeatherStation.h>
+#include <RemoteLogger.h>
 
 /*Define global constants*/
 const byte chipSelect = 4;          // Chip select pin for SD card
@@ -51,7 +51,7 @@ String sdiResponse = "";  // SDI-12 responce var
 #define SENSOR_ADDRESS 0
 
 /*Create library instances*/
-WeatherStation ws(my_letters, my_header);
+RemoteLogger rl(my_letters, my_header);
 RTC_PCF8523 rtc;                  // Setup a PCF8523 Real Time Clock instance (may have to change this to more precise DS3231)
 File dataFile;                    // Setup a log file instance
 IridiumSBD modem(IridiumSerial, IridSlpPin);  // Declare the IridiumSBD object
@@ -59,13 +59,13 @@ QuickStats stats;                 // Instance of QuickStats
 
 String take_measurement() {
 
-  digitalWrite(ws.ULTRASONIC_PWR_PIN, HIGH); delay(500);
+  digitalWrite(rl.ULTRASONIC_PWR_PIN, HIGH); delay(500);
 
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," +
-    ws.sample_ultrasonic();
+    rl.sample_ultrasonic();
   
-  digitalWrite(ws.ULTRASONIC_PWR_PIN, LOW); delay(50);
+  digitalWrite(rl.ULTRASONIC_PWR_PIN, LOW); delay(50);
 
   return msmt;
 }

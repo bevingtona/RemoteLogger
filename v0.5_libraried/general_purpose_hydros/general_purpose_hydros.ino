@@ -1,5 +1,5 @@
 /**
- * January 25, 2024: fully converted to use WeatherStation library
+ * January 25, 2024: fully converted to use RemoteLogger library
 */
 
 
@@ -12,17 +12,17 @@
 #include <MemoryFree.h>         // https://github.com/mpflaga/Arduino-MemoryFree
 #include <Adafruit_SleepyDog.h>
 
-#include <WeatherStation.h>     // custom library
+#include <RemoteLogger.h>     // custom library
 
 /*Define global vars */
 String my_letter = "ABC"; //depends on sensors (what we're measuring) - order matters
 String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
 
 /*Create library instances*/
-WeatherStation ws(my_letter, my_header);                // instance of WeatherStation class
+RemoteLogger rl(my_letter, my_header);                // instance of RemoteLogger class
 
 String prep_msg(){
-  SD.begin(ws.SD_CHIP_SELECT_PIN);
+  SD.begin(rl.SD_CHIP_SELECT_PIN);
   CSV_Parser cp("sfffff", true, ',');  // Set paramters for parsing the log file
   cp.readSDfile("/HOURLY.csv"); //open CSV file of hourly readings 
   int num_rows = cp.getRowsCount();  //Get # of rows
@@ -58,15 +58,15 @@ String prep_msg(){
 }
 
 String take_measurement(){
-  digitalWrite(ws.HYDROS_SET_PIN, HIGH); delay(50);
-  digitalWrite(ws.HYDROS_SET_PIN, LOW); delay(1000);
+  digitalWrite(rl.HYDROS_SET_PIN, HIGH); delay(50);
+  digitalWrite(rl.HYDROS_SET_PIN, LOW); delay(1000);
   
-  String msmt = String(ws.sample_batt_v()) + "," + 
+  String msmt = String(rl.sample_batt_v()) + "," + 
     freeMemory() + "," + 
-    ws.sample_hydros_M();
+    rl.sample_hydros_M();
 
-  digitalWrite(ws.HYDROS_UNSET_PIN, HIGH); delay(50);
-  digitalWrite(ws.HYDROS_UNSET_PIN, LOW); delay(50);
+  digitalWrite(rl.HYDROS_UNSET_PIN, HIGH); delay(50);
+  digitalWrite(rl.HYDROS_UNSET_PIN, LOW); delay(50);
 
   return msmt;
 }
@@ -75,11 +75,11 @@ void setup(void){
 
   set_pins();
 
-  ws.start_checks();
+  rl.start_checks();
 
-  ws.read_params();
+  rl.read_params();
 
-  if (ws.test_mode_string == "T") {
+  if (rl.test_mode_string == "T") {
 
     SD.remove("/HOURLY.csv");
 
@@ -89,34 +89,34 @@ void setup(void){
     Serial.println("starting");
 
     Serial.println("check params");
-    Serial.print(" - sample_freq_m_16: "); Serial.println(ws.sample_freq_m_16);
-    Serial.print(" - irid_freq_h_16: "); Serial.println(ws.irid_freq_h_16);
-    Serial.print(" - test_mode_string: "); Serial.println(ws.test_mode_string);
-    Serial.print(" - onstart_samples_16: "); Serial.println(ws.onstart_samples_16);
+    Serial.print(" - sample_freq_m_16: "); Serial.println(rl.sample_freq_m_16);
+    Serial.print(" - irid_freq_h_16: "); Serial.println(rl.irid_freq_h_16);
+    Serial.print(" - test_mode_string: "); Serial.println(rl.test_mode_string);
+    Serial.print(" - onstart_samples_16: "); Serial.println(rl.onstart_samples_16);
 
     // CHECK SENSORS
     Serial.println("check sensors");
-    String datastring_start = ws.rtc.now().timestamp() + "," + take_measurement();
+    String datastring_start = rl.rtc.now().timestamp() + "," + take_measurement();
     Serial.print(" - "); Serial.println(datastring_start);
-    ws.write_to_csv(my_header + ",comment", datastring_start + ", startup", "/DATA.csv");
-    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-    ws.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    rl.write_to_csv(my_header + ",comment", datastring_start + ", startup", "/DATA.csv");
+    rl.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    rl.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    rl.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    rl.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
+    rl.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
     Serial.print(" - "); Serial.println(prep_msg());
 
     // ONSTART SAMPLES
     Serial.println("check onstart samples");
     Serial.print(" - "); Serial.println(my_header);
-    for (int i = 0; i < ws.onstart_samples_16; i++) {
-      String datastring_start = ws.rtc.now().timestamp() + "," + take_measurement();
+    for (int i = 0; i < rl.onstart_samples_16; i++) {
+      String datastring_start = rl.rtc.now().timestamp() + "," + take_measurement();
       Serial.print(" - "); Serial.println(datastring_start);
-      ws.write_to_csv(my_header + ",comment", datastring_start + ",startup sample " + i, "/DATA.csv");
+      rl.write_to_csv(my_header + ",comment", datastring_start + ",startup sample " + i, "/DATA.csv");
     }
   
     Serial.println("check irid");
-    ws.irid_test(datastring_start);
+    rl.irid_test(datastring_start);
   
     SD.remove("/HOURLY.csv");
 
@@ -124,45 +124,45 @@ void setup(void){
 
   Serial.println("Awaiting delayed start ...");
 
-  int countdownMS = Watchdog.enable(ws.watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
+  int countdownMS = Watchdog.enable(rl.watchdog_timer); // Initialize watchdog (decay function that will reset the logger if it runs out)
 
 }
 
 void loop(void){
 
-  DateTime present_time = ws.rtc.now(); // WAKE UP, WHAT TIME IS IT?
+  DateTime present_time = rl.rtc.now(); // WAKE UP, WHAT TIME IS IT?
   
   // BLINK INTERVAL, THEN SLEEP
   if (present_time.second() % 10 == 0){
-    ws.blinky(1, 20, 200, 200);
+    rl.blinky(1, 20, 200, 200);
     
     // TAKE A SAMPLE AT INTERVAL 
-    if (present_time.minute() % ws.sample_freq_m_16 == 0 & present_time.second() == 0){
+    if (present_time.minute() % rl.sample_freq_m_16 == 0 & present_time.second() == 0){
       String sample = take_measurement();
       Watchdog.reset();
       
       // SAVE TO HOURLY ON HOUR
       if(present_time.minute() == 0){
-        ws.write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
+        rl.write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
 
         // SEND MESSAGE
-        if (present_time.minute() == 0 & present_time.hour() % ws.irid_freq_h_16 == 0){ 
+        if (present_time.minute() == 0 & present_time.hour() % rl.irid_freq_h_16 == 0){ 
           String msg = prep_msg();
-          int irid_err = ws.send_msg(msg);
+          int irid_err = rl.send_msg(msg);
           SD.remove("/HOURLY.csv");
 
         }
       }
          
-      ws.write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
+      rl.write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
       Watchdog.disable();
       Watchdog.enable(100);
       delay(200); // TRIGGER WATCHDOG
 
     }
     
-    DateTime sample_end = ws.rtc.now();
-    uint32_t sleep_time = ((ws.blink_freq_s - (sample_end.second() % ws.blink_freq_s)) * 1000.0) - 1000;
+    DateTime sample_end = rl.rtc.now();
+    uint32_t sleep_time = ((rl.blink_freq_s - (sample_end.second() % rl.blink_freq_s)) * 1000.0) - 1000;
     LowPower.sleep(sleep_time);
   }
   
@@ -177,22 +177,22 @@ void loop(void){
 void set_pins(){
   //set Irid power and LED pins  
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50); //Irid power pin (I think) - redundant, done below
-  pinMode(ws.LED_PIN, OUTPUT); digitalWrite(ws.LED_PIN, HIGH); delay(50); digitalWrite(ws.LED_PIN, LOW); delay(50);
+  pinMode(rl.LED_PIN, OUTPUT); digitalWrite(rl.LED_PIN, HIGH); delay(50); digitalWrite(rl.LED_PIN, LOW); delay(50);
   
   //set SDI-12 data bus pin
-  pinMode(ws.DATA_PIN, INPUT); 
+  pinMode(rl.DATA_PIN, INPUT); 
 
   //sensor set and unset pins
-  pinMode(ws.HYDROS_SET_PIN, OUTPUT); 
-  digitalWrite(ws.HYDROS_SET_PIN, HIGH); delay(50);
-  digitalWrite(ws.HYDROS_SET_PIN, LOW); delay(50);
+  pinMode(rl.HYDROS_SET_PIN, OUTPUT); 
+  digitalWrite(rl.HYDROS_SET_PIN, HIGH); delay(50);
+  digitalWrite(rl.HYDROS_SET_PIN, LOW); delay(50);
   
-  pinMode(ws.HYDROS_UNSET_PIN, OUTPUT);
-  digitalWrite(ws.HYDROS_UNSET_PIN, HIGH); delay(50);
-  digitalWrite(ws.HYDROS_UNSET_PIN, LOW); delay(50);
+  pinMode(rl.HYDROS_UNSET_PIN, OUTPUT);
+  digitalWrite(rl.HYDROS_UNSET_PIN, HIGH); delay(50);
+  digitalWrite(rl.HYDROS_UNSET_PIN, LOW); delay(50);
   
   //set irid power (done above - IridPwrPin = 13)
-  pinMode(ws.IRID_POWER_PIN, OUTPUT);
-  digitalWrite(ws.IRID_POWER_PIN, LOW); delay(50);
+  pinMode(rl.IRID_POWER_PIN, OUTPUT);
+  digitalWrite(rl.IRID_POWER_PIN, LOW); delay(50);
 }
 

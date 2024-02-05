@@ -1,5 +1,5 @@
 /**
- * January 25, 2024: partially converted to use WeatherStation library, just needs names changed to be converted (library contains all necessary functionality)
+ * January 25, 2024: partially converted to use RemoteLogger library, just needs names changed to be converted (library contains all necessary functionality)
 */
 
 /*Include the libraries we need*/
@@ -15,7 +15,7 @@
 #include <MemoryFree.h>
 #include <Adafruit_SleepyDog.h>
 
-#include <WeatherStation.h>
+#include <RemoteLogger.h>
 
 /*Define global constants*/
 const byte chipSelect = 4;      // Chip select pin for SD card
@@ -43,7 +43,7 @@ String sdiResponse = "";  // SDI-12 responce var
 #define SENSOR_ADDRESS 0
 
 /*Create library instances*/
-WeatherStation ws(my_letter, my_header);
+RemoteLogger rl(my_letter, my_header);
 RTC_PCF8523 rtc;                  // Setup a PCF8523 Real Time Clock instance (may have to change this to more precise DS3231)
 File dataFile;                    // Setup a log file instance
 IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
