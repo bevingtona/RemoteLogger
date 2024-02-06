@@ -7,6 +7,20 @@ January 25, 2024
 #include "Arduino.h"
 #include "RemoteLogger.h"
 
+// no-argument constructor (for testing purposes)
+RemoteLogger::RemoteLogger(){
+    // global to control amount of memory used for reassigning these all the time
+    myCommand = "";
+    sdiResponse = "";
+
+    // constants 
+    blink_freq_s = 10;
+    watchdog_timer = 30000;
+
+    // global 
+    analite_wiper_cnt = 0; 
+}
+
 //constructor
 RemoteLogger::RemoteLogger(String letters, String header){
 
@@ -91,9 +105,9 @@ void RemoteLogger::read_params(){
 
 void RemoteLogger::blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms){
     for(int i = 1; i <= n; i++){
-        digitalWrite(led, HIGH);
+        digitalWrite(LED_PIN, HIGH);
         delay(high_ms);
-        digitalWrite(led, LOW);
+        digitalWrite(LED_PIN, LOW);
         delay(low_ms);
     }
     delay(btw_ms);
@@ -167,6 +181,9 @@ float RemoteLogger::sample_batt_v(){
     return batt_v;
 }
 
+/**
+ * M: SDI-12 communication protocol command (measure)
+*/
 String RemoteLogger::sample_hydros_M(){
 
     myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
@@ -223,6 +240,9 @@ String RemoteLogger::sample_hydros_M(){
     return sdiResponse;
 }
 
+/**
+ * M: protocol command (first three)
+*/
 String RemoteLogger::sample_ott_M(){
 
     myCommand = String(SENSOR_ADDRESS) + "M!";// first command to take a measurement
@@ -285,6 +305,10 @@ String RemoteLogger::sample_ott_M(){
     return sdiResponse;
 }
 
+
+/**
+ * V: protocol command (next three measurements)
+*/
 String RemoteLogger::sample_ott_V(){
 
     myCommand = String(SENSOR_ADDRESS) + "V!";// first command to take a measurement

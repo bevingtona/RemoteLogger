@@ -32,6 +32,7 @@ class RemoteLogger
 {
     public:
         // basic weather station functions 
+        RemoteLogger(); //no arg - for testing
         RemoteLogger(String letters, String header); // arguments possibly temporary (adjust how we indicate which sensors)
         void start_checks(); // start up data bus protocol, check SD and RTC  
         void start_data_bus();
