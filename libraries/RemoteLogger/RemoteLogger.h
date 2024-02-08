@@ -72,7 +72,8 @@ class RemoteLogger
         /* board-specific constants (Feather M0) */
         const byte LED_PIN = 8;                     // Built-in LED pin
         const byte BATT_PIN = 9;                    // Battery pin
-        const byte DATA_PIN = 12;                   // The pin of the SDI-12 data bus (usually carries data from sensor)
+        /** TODO: want this to be flexible --> maybe put data pin as variable into sampling function */
+        const byte DATA_PIN = 12;                   // The pin of the SDI-12 data bus (usually carries data from sensor) 
         const byte SD_CHIP_SELECT_PIN = 4;          // Chip select pin for SD card
         const byte IRID_POWER_PIN = 13;             // Power base PN2222 transistor pin to Iridium modem
         /* sensor-specific pins */
