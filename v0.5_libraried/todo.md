@@ -5,7 +5,9 @@
 - [ ] remove the concept of predefined set pins - let the user set in the written software
     - note some sensors have more than one pin (e.g. ultrasonic)
 - [ ] pull set/unset pins out from library
-      
+
+
+#### Lower-priority:
 
 - [x] basic library for functions (RemoteLogger.h/.cpp)
 - [x] documentation for importing the library 
