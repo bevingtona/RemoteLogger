@@ -6,8 +6,8 @@ December 20, 2023
 includes support for blinky function
 */
 
-#ifndef WeatherStation_h
-#define WeatherStation_h
+#ifndef RemoteLogger_h
+#define RemoteLogger_h
 
 #include "Arduino.h"
 #include "CSV_Parser.h"         // Needed to parse CSV files
@@ -22,11 +22,35 @@ includes support for blinky function
 #include "QuickStats.h"         // Stats
 #include "ArduinoLowPower.h"    // Needed for putting Feather M0 to sleep between samples
 
+
 /*SDI-12 sensor address, assumed to be 0*/
 #define SENSOR_ADDRESS 0
 
 /*Define Iridium serial communication as Serial1 */
 #define IridiumSerial Serial1
+
+// class Sensor{
+//     public:
+//         Sensor();  //empty sensor --> to allow static length of list of sensors
+//         Sensor(String sensor_name); //constructor
+//         String sample();
+
+//         String data_points;  //data that this sensor collects 
+//         String name;  //options: hydros21, analite195
+
+
+
+//     private:
+//         void assign_headers();    
+
+//         //dictionary of sensor info
+//         const String EMPTY = "empty";
+//         const String HYDROS = "hydros21";
+//         const String HYDROS_DATA = "ABC";  //header for HYDROS21
+//         const String ANALITE = "analite195";
+//         const String ANALITE_DATA = "D";  //header for Analite195
+// };
+
 
 class RemoteLogger
 {
@@ -34,6 +58,7 @@ class RemoteLogger
         // basic weather station functions 
         RemoteLogger(); //no arg - for testing
         RemoteLogger(String letters, String header); // arguments possibly temporary (adjust how we indicate which sensors)
+        RemoteLogger(String header, char sensor_names[][12]);
         void start_checks(); // start up data bus protocol, check SD and RTC  
         void start_data_bus();
         void check_card();
@@ -49,6 +74,7 @@ class RemoteLogger
         int send_msg(String my_msg);
 
         //data sampling functions
+        String sample(String sensor_name);
         String sample_hydros_M();           // sample from Hydros
         String sample_ott_M();              // sample from OTT      /** TODO: ask Alex what these do for documentation */
         String sample_ott_V();              // sample from OTT 
@@ -111,10 +137,24 @@ class RemoteLogger
         //note: currently these are doubly represented - eventually want them to be user-determined (param file?)
         String my_letter;
         String my_header;
-
+        
+        
         String myCommand;
         String sdiResponse;
+        
+        // const byte ALLOWABLE_SENSORS = 3;
+        // Sensor* sensors[ALLOWABLE_SENSORS]; 
 
+        //dictionary of sensor info
+        const String EMPTY = "empty";
+        const String HYDROS = "hydros21";
+        const String HYDROS_DATA = "ABC";  //header for HYDROS21
+        const String ANALITE = "analite195";
+        const String ANALITE_DATA = "D";  //header for Analite195
+        
+        byte sensors;
+        char snames[][12];
 };
+
 
 #endif

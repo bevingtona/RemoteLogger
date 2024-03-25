@@ -40,6 +40,32 @@ RemoteLogger::RemoteLogger(String letters, String header){
     analite_wiper_cnt = 0; 
 }
 
+
+//constructor with sensor list
+RemoteLogger::RemoteLogger(String header, char sensor_names[][12]){
+    // sensors = end(sensor_names) - begin(sensor_names);  //number of sensors = length of names list
+    sensors = 2; /** TODO: this is bad do not have constants in here */
+
+    snames = sensor_names;
+
+    /* build letters for message header */
+    my_letter = "";
+    String temp = "";
+    /** TODO: make this force alphabetical order (could maybe just sort after?)*/
+    for(int i = 0; i < length; i++){
+        temp = snames[i];
+        if (temp == HYDROS) {my_letter += HYDROS_DATA;}
+        else if (temp == ANALITE) {my_letter += ANALITE_DATA;}
+    }
+
+
+    /* build header */
+    // header based on letters in the letter code (my_letter)
+    // start with "datetime,batt_v,memory" --> add on to that
+    my_header = header;
+}
+
+
 /**
  * Standard startup
  * start SDI-12
@@ -181,10 +207,27 @@ float RemoteLogger::sample_batt_v(){
     return batt_v;
 }
 
+
+String RemoteLogger::sample(String sensor_name){
+    if (sensor_name==EMPTY){
+        return "";
+    }
+    else if (sensor_name==HYDROS){
+        return sample_hydros_M();
+    }
+    else if (sensor_name==ANALITE){
+        return sample_analite_195();
+    }
+}
+
+
 /**
  * M: SDI-12 communication protocol command (measure)
 */
 String RemoteLogger::sample_hydros_M(){
+
+    digitalWrite(HYDROS_SET_PIN, HIGH); delay(50);
+    digitalWrite(HYDROS_SET_PIN, LOW); delay(1000);
 
     myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
 
@@ -236,6 +279,9 @@ String RemoteLogger::sample_hydros_M(){
 
     if (sdiResponse == "")
         sdiResponse = "-9,-9,-9"; // no reading
+
+    digitalWrite(HYDROS_UNSET_PIN, HIGH); delay(50);
+    digitalWrite(HYDROS_UNSET_PIN, LOW); delay(50);
 
     return sdiResponse;
 }
@@ -440,16 +486,28 @@ long RemoteLogger::sample_ultrasonic(){
 /**
  * specific to hydros --> need to take out of library
 */
-String RemoteLogger::take_measurement(){
-    digitalWrite(SensorSetPin, HIGH); delay(50);
-    digitalWrite(SensorSetPin, LOW); delay(1000);
+// String RemoteLogger::take_measurement(){
+//     digitalWrite(SensorSetPin, HIGH); delay(50);
+//     digitalWrite(SensorSetPin, LOW); delay(1000);
   
-    String msmt = String(sample_batt_v()) + "," + 
-        freeMemory() + "," + 
-        sample_hydros_M();
+//     String msmt = String(sample_batt_v()) + "," + 
+//         freeMemory() + "," + 
+//         sample_hydros_M();
 
-    digitalWrite(SensorUnsetPin, HIGH); delay(50);
-    digitalWrite(SensorUnsetPin, LOW); delay(50);
+//     digitalWrite(SensorUnsetPin, HIGH); delay(50);
+//     digitalWrite(SensorUnsetPin, LOW); delay(50);
+
+//     return msmt;
+// }
+
+String RemoteLogger::take_measurement(){
+
+    String msmt = String(sample_batt_v()) + "," +
+        freeMemory();
+
+    for(int i = 0; i < sensors; i++){
+        msmt += ',' + sample(snames[i]);
+    }
 
     return msmt;
 }
@@ -589,3 +647,37 @@ int RemoteLogger::send_msg(String my_msg){
 }
 
 
+
+
+/* SENSOR CLASS */
+// Sensor::Sensor(){
+//     name = EMPTY;
+// }
+
+// Sensor::Sensor(String sensor_name){
+//     /** TODO: add some checks in here to see if the entered names are actually in the allowed names*/
+
+//     name = sensor_name;
+
+//     //assign header
+//     assign_headers();
+// }
+
+// String Sensor::sample(){
+//     if (name==EMPTY){
+//         return "";
+//     }
+//     else if (name==HYDROS){
+//         return sample_hydros_M();
+//     }
+//     else if (name==ANALITE){
+//         return sample_analite_195();
+//     }
+// }
+
+
+// void Sensor::assign_headers(){
+//     //assign header
+//     if (name==HYDROS) {data_points = HYDROS_DATA;}
+//     else if (name==ANALITE) {data_points = ANALITE_DATA;}
+// }
