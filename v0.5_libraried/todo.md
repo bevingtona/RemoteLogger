@@ -6,6 +6,14 @@
     - note some sensors have more than one pin (e.g. ultrasonic)
 - [ ] pull set/unset pins out from library
 
+Code examples to include (clean using library):
+- hydros
+- hydros + analite
+- ott
+- ott + analite
+- hydros + ultrasonic
+- ultrasonic
+
 
 #### Lower-priority:
 

@@ -8,6 +8,28 @@ Author: Rachel Pagdin
 
 ## Library add log: 
 
+
+### Mar 27, 2024:
+- added clean code for hydros with library (library_clean folder)
+- added hydros w/ TPL modifications and library
+
+Note: 
+- might it be good to somehow manage the time intervals within the library? seems like the hardest part
+
+
+
+### Mar 25, 2024:
+- removed set/unset pins from the library for hydros (as proof of concept)
+- merged two sample_ott functions into one for better usability (since they're always used together anyway and it's not clear what the division is except running out of space on data bus)
+
+Notes:
+- need to take out take_measurement and make that the responsibility of the user for now
+- need to write clean example for the basic sensors with the relay 
+- examples for without the relay? -- ask Alex about the TPL chip (probably for after March)
+- need to make a clean version of the library files to publish -- keep commented "dirty" version locally
+
+
+
 ### Jan 24-25, 2024:
 - constants for pin numbers (specific to board --> needs to be documented)
 - general_purpose_ott.ino compiled with more reasonable flexibility of library (as opposed to general_purpose_hydros, which is over-librarified)

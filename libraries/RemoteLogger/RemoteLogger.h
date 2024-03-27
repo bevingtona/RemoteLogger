@@ -58,7 +58,6 @@ class RemoteLogger
         // basic weather station functions 
         RemoteLogger(); //no arg - for testing
         RemoteLogger(String letters, String header); // arguments possibly temporary (adjust how we indicate which sensors)
-        RemoteLogger(String header, char sensor_names[][12]);
         void start_checks(); // start up data bus protocol, check SD and RTC  
         void start_data_bus();
         void check_card();
@@ -74,8 +73,9 @@ class RemoteLogger
         int send_msg(String my_msg);
 
         //data sampling functions
-        String sample(String sensor_name);
         String sample_hydros_M();           // sample from Hydros
+        String sample_ott();
+        //maybe move these two to private eventually
         String sample_ott_M();              // sample from OTT      /** TODO: ask Alex what these do for documentation */
         String sample_ott_V();              // sample from OTT 
         String sample_analite_195();        // sample from Analite
