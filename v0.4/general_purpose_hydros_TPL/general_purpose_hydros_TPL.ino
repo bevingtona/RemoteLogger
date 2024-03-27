@@ -13,8 +13,6 @@
 
 /*Define global constants*/
 const byte chipSelect = 4;      // Chip select pin for SD card
-const byte SensorSetPin = 5;    //Power relay set pin to HYDROS21
-const byte SensorUnsetPin = 6;  //Power relay unset pin to HYDROS21
 const byte led = 8;             // Built in led pin
 const byte vbatPin = 9;         // Batt pin
 const byte dataPin = 12;        // The pin of the SDI-12 data bus
@@ -23,18 +21,7 @@ const byte IridPwrPin = 13;     // Power base PN222 2 transistor pin to Iridium 
 /*Define global vars */
 String my_letter = "ABC";
 String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
-int16_t *sample_freq_m;
-uint16_t sample_freq_m_16;
-int16_t *irid_freq_h;
-uint16_t irid_freq_h_16;
-char **test_mode;
-String test_mode_string;
-int16_t *onstart_samples;
-uint16_t onstart_samples_16;
 int err;
-
-uint16_t blink_freq_s = 10;
-// uint16_t watchdog_timer = 30000;
 
 String myCommand = "";    // SDI-12 command var
 String sdiResponse = "";  // SDI-12 responce var
@@ -54,15 +41,9 @@ QuickStats stats;                 // Instance of QuickStats
 
 String take_measurement() {
 
-  digitalWrite(SensorSetPin, HIGH); delay(50);
-  digitalWrite(SensorSetPin, LOW); delay(1000);
-  
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," + 
     sample_hydros_M();
-
-  digitalWrite(SensorUnsetPin, HIGH); delay(50);
-  digitalWrite(SensorUnsetPin, LOW); delay(50);
 
   return msmt;
 }
@@ -107,14 +88,6 @@ void setup(void) {
   
   pinMode(dataPin, INPUT); 
 
-  pinMode(SensorSetPin, OUTPUT); 
-  digitalWrite(SensorSetPin, HIGH); delay(50);
-  digitalWrite(SensorSetPin, LOW); delay(50);
-  
-  pinMode(SensorUnsetPin, OUTPUT);
-  digitalWrite(SensorUnsetPin, HIGH); delay(50);
-  digitalWrite(SensorUnsetPin, LOW); delay(50);
-  
   pinMode(IridPwrPin, OUTPUT);
   digitalWrite(IridPwrPin, LOW); delay(50);
 
@@ -133,9 +106,6 @@ void setup(void) {
 
   delay(100);
   Serial.begin(9600);
-
-  // SD.remove("/TRACKING.csv");    
-  // SD.remove("/HOURLY.csv");    
 
 }
 
@@ -422,26 +392,4 @@ void irid_test(String msg) {
   }
 
   digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
-}
-
-void read_params() {
-
-  CSV_Parser cp("ddsd", true, ',');
-  Serial.println(" - check param.txt");
-  while (!cp.readSDfile("/PARAM.txt")) { blinky(3, 200, 200, 1000); }
-  cp.parseLeftover();
-
-  sample_freq_m = (int16_t *)cp["sample_freq_m"];
-  sample_freq_m_16 = sample_freq_m[0];
-  irid_freq_h = (int16_t *)cp["irid_freq_h"];
-  irid_freq_h_16 = irid_freq_h[0];
-  test_mode = (char **)cp["test_mode"];
-  test_mode_string = String(test_mode[0]);
-  onstart_samples = (int16_t *)cp["onstart_samples"];
-  onstart_samples_16 = onstart_samples[0];
-
-  delete sample_freq_m;
-  delete irid_freq_h;
-  delete test_mode;
-  delete onstart_samples;
 }
