@@ -244,7 +244,7 @@ String RemoteLogger::sample_hydros_M(){
 }
 
 
-String RemoteLogger:sample_ott(){
+String RemoteLogger::sample_ott(){
     return sample_ott_M() + sample_ott_V();
 }
 

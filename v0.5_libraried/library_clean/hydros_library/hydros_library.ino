@@ -62,7 +62,7 @@ void setup(){
         rl.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
         rl.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
         rl.write_to_csv(my_header, datastring_start, "/HOURLY.csv");
-        Serial.print(" - "); Serial.println(prep_msg());
+        Serial.print(" - "); Serial.println(rl.prep_msg());
 
         // ONSTART SAMPLES
         Serial.println("check onstart samples");
@@ -102,7 +102,7 @@ void loop(){
 
                 // SEND MESSAGE
                 if (present_time.minute() == 0 & present_time.hour() % rl.irid_freq_h_16 == 0){ 
-                    String msg = prep_msg();
+                    String msg = rl.prep_msg();
                     int irid_err = rl.send_msg(msg);
                     SD.remove("/HOURLY.csv");
 
@@ -135,6 +135,8 @@ String take_measurement(){
 
     digitalWrite(sensor_unset_pin, HIGH); delay(50);
     digitalWrite(sensor_unset_pin, LOW); delay(1000);
+
+    return msmt;
 
 }
 
