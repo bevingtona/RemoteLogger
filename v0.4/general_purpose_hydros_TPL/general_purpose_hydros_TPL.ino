@@ -17,6 +17,7 @@ const byte led = 8;             // Built in led pin
 const byte vbatPin = 9;         // Batt pin
 const byte dataPin = 12;        // The pin of the SDI-12 data bus
 const byte IridPwrPin = 13;     // Power base PN222 2 transistor pin to Iridium modem
+const byte iridium_interval_hrs = 3;     // Power base PN222 2 transistor pin to Iridium modem
 
 /*Define global vars */
 String my_letter = "ABC";
@@ -115,13 +116,18 @@ void loop(void) {
 
   Serial.println("###########################################");
     
+  // READ TIME
   DateTime present_time = rtc.now();
+
+  // TAKE MEASUREMENT
   String sample = take_measurement();
   Serial.print("Sample: ");Serial.println(sample);
   
+  // WRITE TO DATA.csv
   Serial.println("Write to /DATA.csv");
   write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
 
+  // INCREMENT TRACKING.csv to know how many samples have been taken
   Serial.print("Add row to /TRACKING.csv = ");
   write_to_csv("n", "1", "/TRACKING.csv");
   CSV_Parser cp("s", true, ','); // Set paramters for parsing the tracking file ("s" = "String")
@@ -129,9 +135,10 @@ void loop(void) {
   int num_rows_tracking = cp.getRowsCount()-1;  //Get # of rows minus header
   Serial.println(num_rows_tracking);
   
-  // HOW MANY SAMPLES UNTIL YOU WRITE TO HOURLY (for TPL at 15m, then this should be 4)
+  // HOW MANY SAMPLES UNTIL YOU WRITE TO HOURLY (for TPL at 15m, then this should be >=4)
   if(num_rows_tracking >= 4){ 
     
+    // WRITE TO HOURLY
     Serial.print("Write to /HOURLY.csv = ");
     write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
     SD.begin(chipSelect);
@@ -140,31 +147,36 @@ void loop(void) {
     int num_rows_hourly = cp.getRowsCount();  //Get # of rows minus header
     Serial.println(num_rows_hourly);
     
-    // If HOURLY > 10 rows, then delete it! Probably too big to send
-    if(num_rows_hourly >= 10){
-      Serial.println(">10 remove hourly");
-      SD.remove("/HOURLY.csv");        
-      }
-
     // If HOURLY >= 2 rows, then send
-    if(num_rows_hourly >= 2 & num_rows_hourly < 10){
+    if(num_rows_hourly >= iridium_interval_hrs & num_rows_hourly < 10){
       
+      // PARSE MSG FROM HOURLY.csv
       Serial.print("Irid msg = ");
       String msg = prep_msg();
       Serial.println(msg);
+
+      // SEND!
       int irid_err = send_msg(msg); 
-      Serial.println(irid_err);
       
+      // IF SUCCESS, delete hourly (if not, will try again at next hourly interval)
       if(irid_err == ISBD_SUCCESS){
         Serial.println("Message sent! Removing /HOURLY.csv");
         SD.remove("/HOURLY.csv");        
         }      
       }
 
+    // If HOURLY > 10 rows, then delete it! Probably too big to send
+    if(num_rows_hourly >= 10){
+      Serial.println(">10 remove hourly");
+      SD.remove("/HOURLY.csv");        
+      }
+
     Serial.println("Remove tracking");
     SD.remove("/TRACKING.csv");
     }
 
+
+  // TRIGGER DONE PIN ON TPL
   pinMode(A0, OUTPUT);
   digitalWrite(A0, LOW); delay(50); digitalWrite(A0, HIGH); delay(50);
   digitalWrite(A0, LOW); delay(50); digitalWrite(A0, HIGH); delay(50);
@@ -272,9 +284,8 @@ int send_msg(String my_msg) {
   delay(2000);
   Serial.println(" - Send_msg");
 
-  IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
+  IridiumSerial.begin(19200); // Start the serial port connected to the satellite modem
 
-  // Serial.print(" begin");
   int err = modem.begin();
   Serial.print(" - modem begin: "); Serial.println(err);
 
@@ -291,17 +302,25 @@ int send_msg(String my_msg) {
   Serial.print(" - Send response... "); Serial.println(err);
   
   if (err != ISBD_SUCCESS){ //} && err != 13) {
+
     Serial.println(" - Retry...");
     err = modem.begin();
+    
+    if (err == ISBD_IS_ASLEEP) {
+      Serial.println(" - Modem asleep, wake up");
+      err = modem.begin();
+      Serial.print(" - modem begin: "); Serial.println(err);
+      }
+
     modem.adjustSendReceiveTimeout(300);
     Serial.println ("  - Sending...");
     err = modem.sendSBDText(my_msg.c_str());
     Serial.print("  - Send response... "); Serial.println(err);
     }
-
-  Serial.println("Sync time:");
+ 
     struct tm t;
     int err_time = modem.getSystemTime(t);
+    Serial.print("  - Sync clocks... "); Serial.println(err_time);
     if (err_time == ISBD_SUCCESS) {
       String pre_time = rtc.now().timestamp();
       Serial.print(" - Arduino Time: ");Serial.println(pre_time);
