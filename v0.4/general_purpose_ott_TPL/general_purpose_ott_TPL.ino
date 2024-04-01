@@ -9,7 +9,6 @@
 #include <SDI12.h>            //Needed for SDI-12 communication
 #include <QuickStats.h>       // Stats
 #include <MemoryFree.h>
-#include <Adafruit_SleepyDog.h>
 
 /*Define global constants*/
 const byte chipSelect = 4;      // Chip select pin for SD card
@@ -21,7 +20,7 @@ const byte iridium_interval_hrs = 3;     // Power base PN222 2 transistor pin to
 
 /*Define global vars */
 String my_letter = "ABC";
-String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
+String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,ott_status,ott_rh,ott_dew,ott_deg";
 int err;
 
 String myCommand = "";    // SDI-12 command var
@@ -44,7 +43,8 @@ String take_measurement() {
 
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," + 
-    sample_hydros_M();
+    sample_ott_M() + "," + 
+    sample_ott_V();
 
   return msmt;
 }
@@ -52,7 +52,7 @@ String take_measurement() {
 String prep_msg(){
   
   SD.begin(chipSelect);
-  CSV_Parser cp("sfffff", true, ',');  // Set paramters for parsing the log file
+  CSV_Parser cp("sffffffff", true, ',');  // Set paramters for parsing the log file
   cp.readSDfile("/HOURLY.csv");
   int num_rows = cp.getRowsCount();  //Get # of rows
     
@@ -61,7 +61,6 @@ String prep_msg(){
   float *out_batt_v = (float *)cp["batt_v"];
   float *out_water_level_mm = (float *)cp["water_level_mm"];
   float *out_water_temp_c = (float *)cp["water_temp_c"];
-  float *out_water_ec_dcm = (float *)cp["water_ec_dcm"];
   
   String datastring_msg = 
     my_letter + ":" +
@@ -75,9 +74,8 @@ String prep_msg(){
   for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
     datastring_msg = 
       datastring_msg + 
-      String(round(out_water_level_mm[i])) + ',' + 
-      String(round(out_water_temp_c[i]*10)) + ',' + 
-      String(round(out_water_ec_dcm[i])) + ':'; // Serial.println(datastring_msg);
+      String(round(out_water_level_mm[i]*1000)) + ',' + 
+      String(round(out_water_temp_c[i]*10)) + ':'; // Serial.println(datastring_msg);
     }
   return datastring_msg;
 }
@@ -252,6 +250,131 @@ String sample_hydros_M() {
   return sdiResponse;
 }
 
+String sample_ott_M(){
+
+  myCommand = String(SENSOR_ADDRESS) + "M!";// first command to take a measurement
+
+  mySDI12.sendCommand(myCommand);
+  delay(30);  // wait a while for a response
+
+  while (mySDI12.available()) {  // build response string
+    char c = mySDI12.read();
+    if ((c != '\n') && (c != '\r')) {
+      sdiResponse += c;
+      delay(10);  // 1 character ~ 7.5ms
+    }
+  }
+
+  /*Clear buffer*/
+  if (sdiResponse.length() > 1)
+    mySDI12.clearBuffer();
+
+  delay(2000);       // delay between taking reading and requesting data
+  sdiResponse = "";  // clear the response string
+
+
+  // next command to request data from last measurement
+  myCommand = String(SENSOR_ADDRESS) + "D0!";
+
+  mySDI12.sendCommand(myCommand);
+  delay(30);  // wait a while for a response
+
+  while (mySDI12.available()) {  // build string from response
+    char c = mySDI12.read();
+    if ((c != '\n') && (c != '\r')) {
+      sdiResponse += c;
+      delay(10);  // 1 character ~ 7.5ms
+    }
+  }
+
+  //subset responce
+  sdiResponse = sdiResponse.substring(3);
+
+  for (int i = 0; i < sdiResponse.length(); i++)
+  {
+
+    char c = sdiResponse.charAt(i);
+
+    if (c == '+')
+    {
+      sdiResponse.setCharAt(i, ',');
+    }
+
+  }
+
+  //clear buffer
+  if (sdiResponse.length() > 1)
+    mySDI12.clearBuffer();
+
+  if(sdiResponse == "")
+    sdiResponse = "-9,-9,-9";
+    
+  return sdiResponse;
+}
+
+String sample_ott_V(){
+
+  myCommand = String(SENSOR_ADDRESS) + "V!";// first command to take a measurement
+
+  mySDI12.sendCommand(myCommand);
+  delay(30);  // wait a while for a response
+
+  while (mySDI12.available()) {  // build response string
+    char c = mySDI12.read();
+    if ((c != '\n') && (c != '\r')) {
+      sdiResponse += c;
+      delay(10);  // 1 character ~ 7.5ms
+    }
+  }
+
+  /*Clear buffer*/
+  if (sdiResponse.length() > 1)
+    mySDI12.clearBuffer();
+
+  delay(2000);       // delay between taking reading and requesting data
+  sdiResponse = "";  // clear the response string
+
+
+  // next command to request data from last measurement
+  myCommand = String(SENSOR_ADDRESS) + "D0!";
+
+  mySDI12.sendCommand(myCommand);
+  delay(30);  // wait a while for a response
+
+  while (mySDI12.available()) {  // build string from response
+    char c = mySDI12.read();
+    if(c == '-'){c = (char) ',';}    
+    if ((c != '\n') && (c != '\r')) {
+      sdiResponse += c;
+      delay(10);  // 1 character ~ 7.5ms
+    }
+  }
+
+  //subset responce
+  sdiResponse = sdiResponse.substring(3);
+
+  for (int i = 0; i < sdiResponse.length(); i++)
+  {
+
+    char c = sdiResponse.charAt(i);
+
+    if (c == '+')
+    {
+      sdiResponse.setCharAt(i, ',');
+    }
+
+  }
+
+  //clear buffer
+  if (sdiResponse.length() > 1)
+    mySDI12.clearBuffer();
+    
+  if(sdiResponse == "")
+    sdiResponse = "-9,-9,-9";
+
+  return sdiResponse;
+}
+
 float sample_batt_v() {
   pinMode(vbatPin, INPUT);
   float batt_v = (analogRead(vbatPin) * 2 * 3.3) / 1024;
@@ -306,11 +429,7 @@ int send_msg(String my_msg) {
     Serial.println(" - Retry...");
     err = modem.begin();
     
-<<<<<<< HEAD
     if (err == 10) {
-=======
-    if (err == ISBD_IS_ASLEEP) {
->>>>>>> 99d7b58503cf9b8dad0f07798448d6354f77d3a9
       Serial.println(" - Modem asleep, wake up");
       err = modem.begin();
       Serial.print(" - modem begin: "); Serial.println(err);
