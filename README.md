@@ -6,7 +6,7 @@ This project that allows you to measure and log hydrometric data in real-time us
 
 With this hydrometric data logger, you can collect water level data and transmit it to your e-mail or a cloud service for real-time monitoring and analysis. The use of the Arduino Feather M0 ensures low power consumption and compatibility with various sensors, making it a versatile and reliable solution for your hydrometric data logging needs.
 
-![REMOTELOGGER](https://github.com/bevingtona/RemoteLogger/assets/9651129/34783a47-727d-43ba-a6db-63897659f26c)
+<img src='[figure/jupyterlab.png](https://github.com/bevingtona/RemoteLogger/assets/9651129/34783a47-727d-43ba-a6db-63897659f26c)' width='250'>
 
 # **Features**
 
