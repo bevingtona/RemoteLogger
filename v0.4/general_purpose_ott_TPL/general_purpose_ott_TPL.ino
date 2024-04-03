@@ -19,7 +19,7 @@ const byte IridPwrPin = 13;     // Power base PN222 2 transistor pin to Iridium 
 const byte iridium_interval_hrs = 3;     // Power base PN222 2 transistor pin to Iridium modem
 
 /*Define global vars */
-String my_letter = "ABC";
+String my_letter = "AB";
 String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,ott_status,ott_rh,ott_dew,ott_deg";
 int err;
 
