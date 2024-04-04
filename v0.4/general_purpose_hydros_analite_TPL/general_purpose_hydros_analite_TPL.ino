@@ -184,14 +184,14 @@ void loop(void) {
       String msg = prep_msg();
       Serial.println(msg);
 
-      // // SEND!
-      // int irid_err = send_msg(msg); 
+      // SEND!
+      int irid_err = send_msg(msg); 
       
-      // // IF SUCCESS, delete hourly (if not, will try again at next hourly interval)
-      // if(irid_err == ISBD_SUCCESS){
-      //   Serial.println("Message sent! Removing /HOURLY.csv");
-      //   SD.remove("/HOURLY.csv");        
-      //   }      
+      // IF SUCCESS, delete hourly (if not, will try again at next hourly interval)
+      if(irid_err == ISBD_SUCCESS){
+        Serial.println("Message sent! Removing /HOURLY.csv");
+        SD.remove("/HOURLY.csv");        
+        }      
       }
 
     // If HOURLY > 10 rows, then delete it! Probably too big to send
