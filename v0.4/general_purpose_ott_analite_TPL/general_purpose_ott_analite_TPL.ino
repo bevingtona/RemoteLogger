@@ -20,8 +20,7 @@ const byte WiperSetPin = 10;    //Power relay set pin to HYDROS21
 const byte WiperUnsetPin = 11;  //Power relay unset pin to HYDROS21
 const byte dataPin = 12;        // The pin of the SDI-12 data bus
 const byte IridPwrPin = 13;     // Power base PN2222 transistor pin to Iridium modem
-const byte tplDone = A0;
-const byte TurbAlog = A1;       // Pin for reading analog outout from voltage divder (R1=1000 Ohm, R2=5000 Ohm) conncted to Analite
+const byte TurbAlog = A2;       // Pin for reading analog outout from voltage divder (R1=1000 Ohm, R2=5000 Ohm) conncted to Analite
 
 /*Define global vars */
 String my_letter = "ABD";
@@ -97,9 +96,7 @@ String prep_msg(){
 }
 
 void setup(void) {
-  
-  delay(1000); 
-
+ 
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
   pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
   
