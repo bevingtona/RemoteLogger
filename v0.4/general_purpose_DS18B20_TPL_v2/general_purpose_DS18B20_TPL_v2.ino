@@ -9,6 +9,8 @@
 #include <SDI12.h>            //Needed for SDI-12 communication
 #include <QuickStats.h>       // Stats
 #include <MemoryFree.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 /*Define global constants*/
 const byte chipSelect = 4;      // Chip select pin for SD card
@@ -18,31 +20,34 @@ const byte dataPin = 12;        // The pin of the SDI-12 data bus
 const byte IridPwrPin = 13;     // Power base PN222 2 transistor pin to Iridium modem
 
 /*Define global vars */
-String my_letter = "ABC";
-String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
+String my_letter = "B";
+String my_header = "datetime,batt_v,memory,water_temp_c";
 int err;
 
-String myCommand = "";    // SDI-12 command var
-String sdiResponse = "";  // SDI-12 responce var
+// Setup a oneWire instance to communicate with any OneWire device
+OneWire oneWire(dataPin);	
+DallasTemperature sensors(&oneWire);
 
 /*Define Iridium seriel communication as Serial1 */
 #define IridiumSerial Serial1
-
-/*SDI-12 sensor address, assumed to be 0*/
-#define SENSOR_ADDRESS 0
 
 /*Create library instances*/
 RTC_PCF8523 rtc;                  // Setup a PCF8523 Real Time Clock instance (may have to change this to more precise DS3231)
 File dataFile;                    // Setup a log file instance
 IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
-SDI12 mySDI12(dataPin);           // Define the SDI-12 bus
 QuickStats stats;                 // Instance of QuickStats
+
+float sample_DS1820(){
+  sensors.requestTemperatures(); 
+  float temp = sensors.getTempCByIndex(0);
+  return(temp);
+  }
 
 String take_measurement() {
 
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," + 
-    sample_hydros_M();
+    sample_DS1820();
 
   return msmt;
 }
@@ -50,16 +55,16 @@ String take_measurement() {
 String prep_msg(){
   
   SD.begin(chipSelect);
-  CSV_Parser cp("sfffff", true, ',');  // Set paramters for parsing the log file
+  CSV_Parser cp("sfff", true, ',');  // Set paramters for parsing the log file
   cp.readSDfile("/HOURLY.csv");
   int num_rows = cp.getRowsCount();  //Get # of rows
     
   char **out_datetimes = (char **)cp["datetime"];
   float *out_mem = (float *)cp["memory"];
   float *out_batt_v = (float *)cp["batt_v"];
-  float *out_water_level_mm = (float *)cp["water_level_mm"];
+  // float *out_water_level_mm = (float *)cp["water_level_mm"];
   float *out_water_temp_c = (float *)cp["water_temp_c"];
-  float *out_water_ec_dcm = (float *)cp["water_ec_dcm"];
+  // float *out_water_ec_dcm = (float *)cp["water_ec_dcm"];
   
   String datastring_msg = 
     my_letter + ":" +
@@ -73,9 +78,9 @@ String prep_msg(){
   for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
     datastring_msg = 
       datastring_msg + 
-      String(round(out_water_level_mm[i])) + ',' + 
-      String(round(out_water_temp_c[i]*10)) + ',' + 
-      String(round(out_water_ec_dcm[i])) + ':'; // Serial.println(datastring_msg);
+      // String(round(out_water_level_mm[i])) + ',' + 
+      String(round(out_water_temp_c[i]*10)) + ':'; 
+      // String(round(out_water_ec_dcm[i])) + ':'; // Serial.println(datastring_msg);
     }
   return datastring_msg;
 }
@@ -92,12 +97,11 @@ void setup(void) {
    
   pinMode(dataPin, INPUT); 
 
+  sensors.begin();	// Start up the library
+  Serial.begin(9600);
+
   pinMode(IridPwrPin, OUTPUT);
   digitalWrite(IridPwrPin, LOW); delay(50);
-
-  // START SDI-12 PROTOCOL
-  Serial.println(" - check sdi12");
-  mySDI12.begin();
 
   // CHECK RTC
   Serial.println(" - check clock");
@@ -147,13 +151,13 @@ void loop(void) {
     Serial.print("Write to /HOURLY.csv = ");
     write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
     SD.begin(chipSelect);
-    CSV_Parser cp("sfffff", true, ',');  // Set paramters for parsing the log file
+    CSV_Parser cp("sfff", true, ',');  // Set paramters for parsing the log file
     cp.readSDfile("/HOURLY.csv");
     int num_rows_hourly = cp.getRowsCount();  //Get # of rows minus header
     Serial.println(num_rows_hourly);
     
     // If HOURLY >= 2 rows, then send
-    if(num_rows_hourly >= 4 & num_rows_hourly < 10){
+    if(num_rows_hourly >= 12 & num_rows_hourly < 15){
       
       // PARSE MSG FROM HOURLY.csv
       Serial.print("Irid msg = ");
@@ -173,8 +177,8 @@ void loop(void) {
       }
 
     // If HOURLY > 10 rows, then delete it! Probably too big to send
-    if(num_rows_hourly >= 10){
-      Serial.println(">10 remove hourly");
+    if(num_rows_hourly >= 15){
+      Serial.println(">15 remove hourly");
       SD.remove("/HOURLY.csv");        
       Serial.println("Remove tracking");
       SD.remove("/TRACKING.csv");
@@ -212,60 +216,6 @@ void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
   delay(btw_ms);
 }
 
-String sample_hydros_M() {
-
-  myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
-
-  mySDI12.sendCommand(myCommand);
-  delay(30);  // wait a while for a response
-
-  while (mySDI12.available()) {  // build response string
-    char c = mySDI12.read();
-    if ((c != '\n') && (c != '\r')) {
-      sdiResponse += c;
-      delay(10);  // 1 character ~ 7.5ms
-    }
-  }
-
-  /*Clear buffer*/
-  if (sdiResponse.length() > 1)
-    mySDI12.clearBuffer();
-
-  delay(2000);       // delay between taking reading and requesting data
-  sdiResponse = "";  // clear the response string
-
-  // next command to request data from last measurement
-  myCommand = String(SENSOR_ADDRESS) + "D0!";
-
-  mySDI12.sendCommand(myCommand);
-  delay(30);  // wait a while for a response
-
-  while (mySDI12.available()) {  // build string from response
-    char c = mySDI12.read();
-    if ((c != '\n') && (c != '\r')) {
-      sdiResponse += c;
-      delay(10);  // 1 character ~ 7.5ms
-    }
-  }
-
-  sdiResponse = sdiResponse.substring(3);
-
-  for (int i = 0; i < sdiResponse.length(); i++) {
-    char c = sdiResponse.charAt(i);
-    if (c == '+') {
-      sdiResponse.setCharAt(i, ',');
-    }
-  }
-
-  //clear buffer
-  if (sdiResponse.length() > 1)
-    mySDI12.clearBuffer();
-
-  if (sdiResponse == "")
-    sdiResponse = "-9,-9,-9";
-
-  return sdiResponse;
-}
 
 float sample_batt_v() {
   pinMode(vbatPin, INPUT);

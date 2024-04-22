@@ -16,7 +16,6 @@ const byte led = 8;             // Built in led pin
 const byte vbatPin = 9;         // Batt pin
 const byte dataPin = 12;        // The pin of the SDI-12 data bus
 const byte IridPwrPin = 13;     // Power base PN222 2 transistor pin to Iridium modem
-const byte iridium_interval_hrs = 3;     // Power base PN222 2 transistor pin to Iridium modem
 
 /*Define global vars */
 String my_letter = "AB";
@@ -80,11 +79,15 @@ String prep_msg(){
   return datastring_msg;
 }
 
+
 void setup(void) {
   
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
   pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
   
+  pinMode(A0, OUTPUT);
+  digitalWrite(A0, LOW); delay(50); 
+
   pinMode(dataPin, INPUT); 
 
   pinMode(IridPwrPin, OUTPUT);
@@ -119,7 +122,9 @@ void loop(void) {
 
   // TAKE MEASUREMENT
   String sample = take_measurement();
-  Serial.print("Sample: ");Serial.println(sample);
+  Serial.println(present_time.timestamp());
+  Serial.print("Sample: ");
+  Serial.println(sample);
   
   // WRITE TO DATA.csv
   Serial.println("Write to /DATA.csv");
@@ -132,9 +137,10 @@ void loop(void) {
   cp.readSDfile("/TRACKING.csv");
   int num_rows_tracking = cp.getRowsCount()-1;  //Get # of rows minus header
   Serial.println(num_rows_tracking);
+  blinky(num_rows_tracking,100,200,2000);
   
   // HOW MANY SAMPLES UNTIL YOU WRITE TO HOURLY (for TPL at 15m, then this should be >=4)
-  if(num_rows_tracking >= 4){ 
+  if(num_rows_tracking == 4){ 
     
     // WRITE TO HOURLY
     Serial.print("Write to /HOURLY.csv = ");
@@ -146,7 +152,7 @@ void loop(void) {
     Serial.println(num_rows_hourly);
     
     // If HOURLY >= 2 rows, then send
-    if(num_rows_hourly >= iridium_interval_hrs & num_rows_hourly < 10){
+    if(num_rows_hourly >= 4 & num_rows_hourly < 10){
       
       // PARSE MSG FROM HOURLY.csv
       Serial.print("Irid msg = ");
@@ -157,9 +163,11 @@ void loop(void) {
       int irid_err = send_msg(msg); 
       
       // IF SUCCESS, delete hourly (if not, will try again at next hourly interval)
-      if(irid_err == ISBD_SUCCESS){
+      if(irid_err == 0){
         Serial.println("Message sent! Removing /HOURLY.csv");
         SD.remove("/HOURLY.csv");        
+        Serial.println("Remove tracking");
+        SD.remove("/TRACKING.csv");    
         }      
       }
 
@@ -167,14 +175,21 @@ void loop(void) {
     if(num_rows_hourly >= 10){
       Serial.println(">10 remove hourly");
       SD.remove("/HOURLY.csv");        
-      }
+      Serial.println("Remove tracking");
+      SD.remove("/TRACKING.csv");
+}
 
     Serial.println("Remove tracking");
     SD.remove("/TRACKING.csv");
     }
-
+    
+    if(num_rows_tracking > 4){ 
+      SD.remove("/HOURLY.csv");
+      SD.remove("/TRACKING.csv");
+    }
 
   // TRIGGER DONE PIN ON TPL
+  Serial.println("TPLDONE");
   pinMode(A0, OUTPUT);
   digitalWrite(A0, LOW); delay(50); digitalWrite(A0, HIGH); delay(50);
   digitalWrite(A0, LOW); delay(50); digitalWrite(A0, HIGH); delay(50);

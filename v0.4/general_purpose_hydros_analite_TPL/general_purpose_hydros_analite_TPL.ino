@@ -98,24 +98,20 @@ String prep_msg(){
 
 void setup(void) {
   
+  delay(1000); 
+
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
   pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
   
   pinMode(dataPin, INPUT); 
 
-  pinMode(WiperSetPin, OUTPUT); 
-  digitalWrite(WiperSetPin, LOW); delay(50);
-  pinMode(WiperUnsetPin, OUTPUT);
-  digitalWrite(WiperUnsetPin, HIGH); delay(50);
-  digitalWrite(WiperUnsetPin, LOW); delay(50);
+  pinMode(WiperSetPin, OUTPUT);  digitalWrite(WiperSetPin, HIGH); delay(50); digitalWrite(WiperSetPin, LOW); delay(50);
+  pinMode(WiperUnsetPin, OUTPUT); digitalWrite(WiperUnsetPin, HIGH); delay(50);digitalWrite(WiperUnsetPin, LOW); delay(50); 
+  pinMode(SensorSetPin, OUTPUT);  digitalWrite(SensorSetPin, HIGH); delay(50);digitalWrite(SensorSetPin, LOW); delay(50);
+  pinMode(SensorUnsetPin, OUTPUT); digitalWrite(SensorUnsetPin, HIGH); delay(50);digitalWrite(SensorUnsetPin, LOW); delay(50);
 
-  pinMode(SensorSetPin, OUTPUT); 
-  digitalWrite(SensorSetPin, HIGH); delay(50);
-  digitalWrite(SensorSetPin, LOW); delay(50);
-  
-  pinMode(SensorUnsetPin, OUTPUT);
-  digitalWrite(SensorUnsetPin, HIGH); delay(50);
-  digitalWrite(SensorUnsetPin, LOW); delay(50);
+  pinMode(A0, OUTPUT);
+  digitalWrite(A0, LOW); delay(50);
   
   pinMode(IridPwrPin, OUTPUT);
   digitalWrite(IridPwrPin, LOW); delay(50);
@@ -138,9 +134,8 @@ void setup(void) {
   }
 
 void loop(void) {
-  
+        
   delay(100);
-
   Serial.println("###########################################");
     
   // READ TIME
@@ -161,6 +156,7 @@ void loop(void) {
   cp.readSDfile("/TRACKING.csv");
   int num_rows_tracking = cp.getRowsCount()-1;  //Get # of rows minus header
   Serial.println(num_rows_tracking);
+  blinky(num_rows_tracking,100,100,1000);
   
   // HOW MANY SAMPLES UNTIL YOU WRITE TO HOURLY (for TPL at 15m, then this should be >=4)
   if(num_rows_tracking >= 4){ 
@@ -177,7 +173,7 @@ void loop(void) {
     Serial.println(num_rows_hourly);
     
     // If HOURLY >= 2 rows, then send
-    if(num_rows_hourly >= 4 & num_rows_hourly < 10){
+    if(num_rows_hourly >= 1 & num_rows_hourly < 10){
       
       // PARSE MSG FROM HOURLY.csv
       Serial.print("Irid msg = ");
@@ -207,6 +203,7 @@ void loop(void) {
 
   // TRIGGER DONE PIN ON TPL
   pinMode(A0, OUTPUT);
+  Serial.println("TPLDONE");
   digitalWrite(A0, LOW); delay(50); digitalWrite(A0, HIGH); delay(50);
   digitalWrite(A0, LOW); delay(50); digitalWrite(A0, HIGH); delay(50);
   digitalWrite(A0, LOW); delay(50); digitalWrite(A0, HIGH); delay(50);
@@ -289,7 +286,8 @@ void wiper_analite_195() {
   digitalWrite(WiperSetPin, HIGH); delay(50); delay(100);
   digitalWrite(WiperSetPin, LOW); delay(50); 
   digitalWrite(WiperUnsetPin, HIGH); delay(50); 
-  digitalWrite(WiperUnsetPin, LOW); delay(50); delay(20000);  // wait for full rotation (about 6 seconds)
+  digitalWrite(WiperUnsetPin, LOW); delay(50); 
+  delay(20000);  // wait for full rotation (about 6 seconds)
 
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
   digitalWrite(SensorUnsetPin, LOW); delay(50);
@@ -350,124 +348,53 @@ int send_msg(String my_msg) {
 
   digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
   delay(2000);
+  Serial.println(" - Send_msg");
 
-  IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
+  IridiumSerial.begin(19200); // Start the serial port connected to the satellite modem
+
+  int err = modem.begin();
+  Serial.print(" - modem begin: "); Serial.println(err);
+
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
 
-  // Serial.print(" begin");
-  int err = modem.begin();
-  
-  if (err == ISBD_IS_ASLEEP) {
-    // Serial.print(" wake");
+  if (err == 10) {
+    Serial.println(" - Modem asleep, wake up");
     err = modem.begin();
+    Serial.print(" - modem begin: "); Serial.println(err);
   }
 
-  // modem.adjustSendReceiveTimeout(300);
-  // Serial.print(" send");
+  Serial.println(" - Sending...");
   err = modem.sendSBDText(my_msg.c_str());
+  Serial.print(" - Send response... "); Serial.println(err);
   
   if (err != ISBD_SUCCESS){ //} && err != 13) {
-    // Serial.print(" retry");
-    err = modem.begin();
-    // modem.adjustSendReceiveTimeout(300);
-    // Serial.print(" send");
-    err = modem.sendSBDText(my_msg.c_str());
-    }
 
-  // Serial.print(" time");
-  if(rtc.now().hour() == 12 & rtc.now().day() % 5 == 0){
+    Serial.println(" - Retry...");
+    err = modem.begin();
+    
+    if (err == 10) {
+      Serial.println(" - Modem asleep, wake up");
+      err = modem.begin();
+      Serial.print(" - modem begin: "); Serial.println(err);
+      }
+
+    modem.adjustSendReceiveTimeout(300);
+    Serial.println ("  - Sending...");
+    err = modem.sendSBDText(my_msg.c_str());
+    Serial.print("  - Send response... "); Serial.println(err);
+    }
+ 
     struct tm t;
     int err_time = modem.getSystemTime(t);
+    Serial.print("  - Sync clocks... "); Serial.println(err_time);
     if (err_time == ISBD_SUCCESS) {
       String pre_time = rtc.now().timestamp();
+      Serial.print(" - Arduino Time: ");Serial.println(pre_time);
       rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
-      String post_time = rtc.now().timestamp();
-    }
+      Serial.print(" - Arduino New Time: ");String post_time = rtc.now().timestamp();
+      Serial.println(post_time);
   }
   
   digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
   return err;
-}
-
-void irid_test(String msg) {
-
-  pinMode(IridPwrPin, OUTPUT);     //Set iridium power pin as OUTPUT
-  digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
-  delay(2000);
-
-  int signalQuality = -1;
-
-  IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
-  modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
-
-  // Begin satellite modem operation
-  Serial.println(" - starting modem...");
-  int err = modem.begin();
-
-  if (err != ISBD_SUCCESS) {
-    Serial.print(" - begin failed: error ");
-    Serial.println(err);
-    if (err == ISBD_NO_MODEM_DETECTED)
-      Serial.println(" - no modem detected: check wiring.");
-    return;
-  }
-
-  // Example: Print the firmware revision
-  char version[12];
-  err = modem.getFirmwareVersion(version, sizeof(version));
-  if (err != ISBD_SUCCESS) {
-    Serial.print(" - firmware version failed: error ");
-    Serial.println(err);
-    return;
-  }
-
-  Serial.print(" - firmware version is ");
-  Serial.print(version);
-  Serial.println(".");
-
-  int n = 0;
-  while (n < 10) {
-    err = modem.getSignalQuality(signalQuality);
-    if (err != ISBD_SUCCESS) {
-      Serial.print(" - signalQuality failed: error ");
-      Serial.println(err);
-      return;
-    }
-
-    Serial.print(" - signal quality is currently ");
-    Serial.print(signalQuality);
-    Serial.println(".");
-    n = n + 1;
-    delay(1000);
-  }
-
-  // Send the message
-  Serial.print(" - Attempting: ");
-  msg = "Hello world! " + msg;
-  Serial.println(msg);
-
-  err = modem.sendSBDText(msg.c_str());
-  Serial.println(err);
- 
-  if (err != ISBD_SUCCESS) {
-    Serial.print(" - sendSBDText failed: error ");
-    Serial.println(err);
-    if (err == ISBD_SENDRECEIVE_TIMEOUT)
-      Serial.println(" - try again with a better view of the sky.");
-  } else {
-    Serial.println(" - hey, it worked!");
-  }
-
-  Serial.println("Sync clock to Iridium");
-  struct tm t;
-  int err_time = modem.getSystemTime(t);
-  if (err_time == ISBD_SUCCESS) {
-    String pre_time = rtc.now().timestamp();
-    Serial.println(pre_time);
-    rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
-    String post_time = rtc.now().timestamp();
-    Serial.println(post_time);
-  }
-
-  digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
 }
