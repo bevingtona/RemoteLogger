@@ -20,7 +20,7 @@ const byte WiperSetPin = 10;    //Power relay set pin to HYDROS21
 const byte WiperUnsetPin = 11;  //Power relay unset pin to HYDROS21
 const byte dataPin = 12;        // The pin of the SDI-12 data bus
 const byte IridPwrPin = 13;     // Power base PN2222 transistor pin to Iridium modem
-const byte TurbAlog = A2;       // Pin for reading analog outout from voltage divder (R1=1000 Ohm, R2=5000 Ohm) conncted to Analite
+const byte TurbAlog = A1;       // Pin for reading analog outout from voltage divder (R1=1000 Ohm, R2=5000 Ohm) conncted to Analite
 
 /*Define global vars */
 String my_letter = "ABD";
@@ -44,6 +44,17 @@ IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
 SDI12 mySDI12(dataPin);           // Define the SDI-12 bus
 QuickStats stats;                 // Instance of QuickStats
 
+String parseData(String dataString) {
+
+  int tempSignIndex = dataString.indexOf('-', 1); // Start search after the first character
+
+  if (tempSignIndex > 0 && dataString[tempSignIndex - 1] != ',') {
+
+  dataString = dataString.substring(0, tempSignIndex) + "," + dataString.substring(tempSignIndex);
+  }
+  return dataString;
+}
+
 String take_measurement() {
 
   digitalWrite(SensorSetPin, HIGH); delay(50);
@@ -51,7 +62,7 @@ String take_measurement() {
 
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," + 
-    sample_ott_M() + "," + 
+    parseData(sample_ott_M()) + "," + 
     sample_ott_V() + "," + 
     sample_analite_195();
 
@@ -103,9 +114,9 @@ void setup(void) {
   pinMode(dataPin, INPUT); 
 
   pinMode(WiperSetPin, OUTPUT);  digitalWrite(WiperSetPin, HIGH); delay(50); digitalWrite(WiperSetPin, LOW); delay(50);
-  pinMode(WiperUnsetPin, OUTPUT); digitalWrite(WiperUnsetPin, HIGH); delay(50);digitalWrite(WiperUnsetPin, LOW); delay(50); 
-  pinMode(SensorSetPin, OUTPUT);  digitalWrite(SensorSetPin, HIGH); delay(50);digitalWrite(SensorSetPin, LOW); delay(50);
-  pinMode(SensorUnsetPin, OUTPUT); digitalWrite(SensorUnsetPin, HIGH); delay(50);digitalWrite(SensorUnsetPin, LOW); delay(50);
+  pinMode(WiperUnsetPin, OUTPUT); digitalWrite(WiperUnsetPin, HIGH); delay(50); digitalWrite(WiperUnsetPin, LOW); delay(50); 
+  pinMode(SensorSetPin, OUTPUT);  digitalWrite(SensorSetPin, HIGH); delay(50); digitalWrite(SensorSetPin, LOW); delay(50);
+  pinMode(SensorUnsetPin, OUTPUT); digitalWrite(SensorUnsetPin, HIGH); delay(50); digitalWrite(SensorUnsetPin, LOW); delay(50);
 
   pinMode(A0, OUTPUT);
   digitalWrite(A0, LOW); delay(50);
@@ -133,7 +144,6 @@ void setup(void) {
 void loop(void) {
 
   delay(100);
-
   Serial.println("###########################################");
     
   // READ TIME
@@ -174,7 +184,7 @@ void loop(void) {
     Serial.println(num_rows_hourly);
     
     // If HOURLY >= 2 rows, then send
-    if(num_rows_hourly >= 4 & num_rows_hourly < 10){
+    if(num_rows_hourly >= 2 & num_rows_hourly < 10){
       
       // PARSE MSG FROM HOURLY.csv
       Serial.print("Irid msg = ");
@@ -311,7 +321,8 @@ String sample_analite_195() {
   float values[10];  //Array for storing sampled distances
 
   for (int i = 0; i < 10; i++) {
-    values[i] = (float)analogRead(TurbAlog);  // Read analog value from probe
+    values[i] = (float)
+    analogRead(TurbAlog);  // Read analog value from probe
     delay(5);
   }
 

@@ -20,7 +20,6 @@ const byte WiperSetPin = 10;    //Power relay set pin to HYDROS21
 const byte WiperUnsetPin = 11;  //Power relay unset pin to HYDROS21
 const byte dataPin = 12;        // The pin of the SDI-12 data bus
 const byte IridPwrPin = 13;     // Power base PN2222 transistor pin to Iridium modem
-const byte tplDone = A0;
 const byte TurbAlog = A1;       // Pin for reading analog outout from voltage divder (R1=1000 Ohm, R2=5000 Ohm) conncted to Analite
 
 /*Define global vars */
@@ -44,6 +43,17 @@ IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
 SDI12 mySDI12(dataPin);           // Define the SDI-12 bus
 QuickStats stats;                 // Instance of QuickStats
 
+String parseData(String dataString) {
+
+  int tempSignIndex = dataString.indexOf('-', 1); // Start search after the first character
+
+  if (tempSignIndex > 0 && dataString[tempSignIndex - 1] != ',') {
+
+  dataString = dataString.substring(0, tempSignIndex) + "," + dataString.substring(tempSignIndex);
+  }
+  return dataString;
+}
+
 String take_measurement() {
 
   digitalWrite(SensorSetPin, HIGH); delay(50);
@@ -51,7 +61,7 @@ String take_measurement() {
 
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," + 
-    sample_hydros_M() + "," + 
+    parseData(sample_hydros_M()) + "," + 
     sample_analite_195();
 
   digitalWrite(SensorUnsetPin, HIGH); delay(50);
@@ -98,8 +108,6 @@ String prep_msg(){
 
 void setup(void) {
   
-  delay(1000); 
-
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
   pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
   
@@ -143,24 +151,27 @@ void loop(void) {
 
   // TAKE MEASUREMENT
   String sample = take_measurement();
-  Serial.print("Sample: ");Serial.println(sample);
+  Serial.println(present_time.timestamp());
+  Serial.print("Sample: ");
+  Serial.println(sample);
   
   // WRITE TO DATA.csv
   Serial.println("Write to /DATA.csv");
   write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
 
-  // INCREMENT TRACKING.csv to know how many samples have been taken
+// INCREMENT TRACKING.csv to know how many samples have been taken
   Serial.print("Add row to /TRACKING.csv = ");
   write_to_csv("n", "1", "/TRACKING.csv");
   CSV_Parser cp("s", true, ','); // Set paramters for parsing the tracking file ("s" = "String")
   cp.readSDfile("/TRACKING.csv");
   int num_rows_tracking = cp.getRowsCount()-1;  //Get # of rows minus header
   Serial.println(num_rows_tracking);
-  blinky(num_rows_tracking,100,100,1000);
-  
+  blinky(num_rows_tracking,100,200,2000);
+    
   // HOW MANY SAMPLES UNTIL YOU WRITE TO HOURLY (for TPL at 15m, then this should be >=4)
-  if(num_rows_tracking >= 4){ 
+  if(num_rows_tracking == 4){ 
   
+    Serial.println("wiper on, 20s");
     wiper_analite_195();
 
     // WRITE TO HOURLY
@@ -173,7 +184,7 @@ void loop(void) {
     Serial.println(num_rows_hourly);
     
     // If HOURLY >= 2 rows, then send
-    if(num_rows_hourly >= 1 & num_rows_hourly < 10){
+    if(num_rows_hourly >= 2 & num_rows_hourly < 10){
       
       // PARSE MSG FROM HOURLY.csv
       Serial.print("Irid msg = ");
@@ -184,9 +195,11 @@ void loop(void) {
       int irid_err = send_msg(msg); 
       
       // IF SUCCESS, delete hourly (if not, will try again at next hourly interval)
-      if(irid_err == ISBD_SUCCESS){
+      if(irid_err == 0){
         Serial.println("Message sent! Removing /HOURLY.csv");
         SD.remove("/HOURLY.csv");        
+        Serial.println("Remove tracking");
+        SD.remove("/TRACKING.csv");    
         }      
       }
 
@@ -200,6 +213,10 @@ void loop(void) {
     SD.remove("/TRACKING.csv");
     }
 
+    if(num_rows_tracking > 4){ 
+      SD.remove("/HOURLY.csv");
+      SD.remove("/TRACKING.csv");
+    }
 
   // TRIGGER DONE PIN ON TPL
   pinMode(A0, OUTPUT);
@@ -214,8 +231,8 @@ void loop(void) {
   }
 
 void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms) {
-  for (int i = 1; i <= n; i++) {
     digitalWrite(led, HIGH);
+  for (int i = 1; i <= n; i++) {
     delay(high_ms);
     digitalWrite(led, LOW);
     delay(low_ms);
