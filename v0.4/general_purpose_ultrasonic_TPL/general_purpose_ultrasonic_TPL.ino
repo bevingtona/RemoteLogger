@@ -35,8 +35,8 @@ const byte pulsePin = 12; //Pulse width pin for reading pw from MaxBotix MB7369 
 const byte IridSlpPin = 13;     // Power base PN222 2 transistor pin to Iridium modem
 
 /*Define global vars */
-String my_letter = "EFG";
-String my_header = "datetime,batt_v,memory,snow_depth_mm,air_2m_temp_deg_c,air_2m_temp_rh_prct";
+String my_letter = "A";
+String my_header = "datetime,batt_v,memory,water_level_mm";
 int err;
 
 String myCommand = "";    // SDI-12 command var
@@ -53,15 +53,15 @@ RTC_PCF8523 rtc;                  // Setup a PCF8523 Real Time Clock instance (m
 File dataFile;                    // Setup a log file instance
 // IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
 IridiumSBD modem(IridiumSerial, IridSlpPin);  // Declare the IridiumSBD object
-Adafruit_SHT31 sht31 = Adafruit_SHT31();
+// Adafruit_SHT31 sht31 = Adafruit_SHT31();
 QuickStats stats;                 // Instance of QuickStats
 
 String take_measurement() {
 
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," + 
-    sample_ultrasonic() + "," + 
-    sample_sht();
+    sample_ultrasonic();
+    // sample_sht();
 
   return msmt;
 }
@@ -69,16 +69,14 @@ String take_measurement() {
 String prep_msg(){
   
   SD.begin(chipSelect);
-  CSV_Parser cp("sfffff", true, ',');  // Set paramters for parsing the log file
+  CSV_Parser cp("sfff", true, ',');  // Set paramters for parsing the log file
   cp.readSDfile("/HOURLY.csv");
   int num_rows = cp.getRowsCount();  //Get # of rows
     
   char **out_datetimes = (char **)cp["datetime"];
   float *out_mem = (float *)cp["memory"];
   float *out_batt_v = (float *)cp["batt_v"];
-  float *out_snow_depth_mm = (float *)cp["snow_depth_mm"];
-  float *out_air_2m_temp_deg_c = (float *)cp["air_2m_temp_deg_c"];
-  float *out_air_2m_temp_rh_prct = (float *)cp["air_2m_temp_rh_prct"];
+  float *out_water_level_mm = (float *)cp["water_level_mm"];
   
   String datastring_msg = 
     my_letter + ":" +
@@ -92,9 +90,9 @@ String prep_msg(){
   for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
     datastring_msg = 
       datastring_msg + 
-      String(round(out_snow_depth_mm[i])) + ',' + 
-      String(round(out_air_2m_temp_deg_c[i]*10)) + ',' + 
-      String(round(out_air_2m_temp_rh_prct[i]*10)) + ':'; // Serial.println(datastring_msg);
+      String(round(out_water_level_mm[i])) + ':'; 
+      // String(round(out_air_2m_temp_deg_c[i]*10)) + ',' + 
+      // String(round(out_air_2m_temp_rh_prct[i]*10)) + ':'; // Serial.println(datastring_msg);
     }
   return datastring_msg;
 }
@@ -164,7 +162,7 @@ void loop(void) {
     Serial.print("Write to /HOURLY.csv = ");
     write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
     SD.begin(chipSelect);
-    CSV_Parser cp("sfffff", true, ',');  // Set paramters for parsing the log file
+    CSV_Parser cp("sfff", true, ',');  // Set paramters for parsing the log file
     cp.readSDfile("/HOURLY.csv");
     int num_rows_hourly = cp.getRowsCount();  //Get # of rows minus header
     Serial.println(num_rows_hourly);
@@ -329,13 +327,13 @@ long sample_ultrasonic(){
   return med_distance;
 }
 
-String sample_sht(){
-  if (!sht31.begin(0x44)) { 
-    blinky(5, 100, 100, 2000);  
-    Serial.println("Couldn't find Temp/RH");
-  }
-  sht31.heater(0);  
-  float t = sht31.readTemperature();
-  float h = sht31.readHumidity();
-  return String(t) + "," + String(h);
-  }
+// String sample_sht(){
+//   if (!sht31.begin(0x44)) { 
+//     blinky(5, 100, 100, 2000);  
+//     Serial.println("Couldn't find Temp/RH");
+//   }
+//   sht31.heater(0);  
+//   float t = sht31.readTemperature();
+//   float h = sht31.readHumidity();
+//   return String(t) + "," + String(h);
+//   }
