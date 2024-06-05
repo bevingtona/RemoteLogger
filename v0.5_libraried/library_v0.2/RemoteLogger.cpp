@@ -8,16 +8,17 @@
 #include <RemoteLogger.h>
 
 RemoteLogger::RemoteLogger(){
-    /** TODO: are these globally available in the library source code? I don't think so */
-    IridiumSBD modem(IridiumSerial);        // declare Iridium object
-    RTC_PCF8523 rtc;                        // declare RTC object
+    modem(IridiumSerial);        // initialize Iridium object
 
     /** TODO: this may not be the best spot for this if user can change pins -- when do they do that? */
     pinMode(ledPin, OUTPUT);
     pinMode(vbatPin, INPUT);
     pinMode(tplPin, OUTPUT);
     pinMode(IridSlpPin, OUTPUT);
+    pinMode(dataPin, INPUT);
 }
+
+/* BASIC UNIT FUNCTIONS */
 
 /**
  * blink preset LED with number of blinks, timing, and pause between sequences set
@@ -90,6 +91,11 @@ void RemoteLogger::tpl_done(){
     digitalWrite(tplPin, LOW); delay(50); digitalWrite(tplPin, HIGH); delay(50);
 }
 
+
+
+
+/* TELEMETRY */
+
 /**
  * send provided message over the Iridium network
  * connect Iridium sleep pin (7 - grey) to pin 13 or change value of IridSlpPin
@@ -127,6 +133,9 @@ int RemoteLogger::send_msg(String my_msg){
 
 /**
  * test the Iridium modem + connection by sending a message
+ * sends "Hello world" + provided message
+ * will print firmware version and test signal quality
+ * if any functions fail it will leave the function immediately 
  * warning that this will attempt to send a message and use credits
  * prints status messages to Serial - does not return any status information from function
 */
@@ -200,6 +209,78 @@ void RemoteLogger::irid_test(String msg){
     
 }
 
+
+
+
+/* SAMPLING FUNCTIONS */
+
+/**
+ * sample from Hydros21 sensor
+ * supply with bus and address of sensor 
+ * 
+ * bus: valid SDI12 bus initialized with the data pin attached to Hydros sensor, must have had begin() called already
+ * sensor_address: SDI-12 address of the Hydros sensor, usually assumed to be 0
+*/
+String RemoteLogger::sample_hydros_M(SDI12 bus, int sensor_address){
+    String sdiResponse = "";
+    String myCommand = String(sensor_address) + "M!";       // first command to take a measurement
+
+    bus.sendCommand(myCommand);
+    delay(30);
+
+    while (bus.available()) {
+        char c = bus.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);      // 1 character ~ 7.5ms
+        }
+    }
+
+    /* clear buffer */
+    if (sdiReponse.length() > 1) {
+        bus.clearBuffer();
+    }
+    delay(2000);        // delay between taking reading and requesting data
+    sdiReponse = "";    // clear response string (to get ready to read data)
+
+    myCommand = String(sensor_address) + "D0!";         // string to request data from last measurement
+    bus.sendCommand(myCommand);
+    delay(30);      // wait for a response
+
+    while (bus.available()) {
+        char c = bus.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);          // 1 character ~ 7.5ms
+        }
+    }
+
+    sdiReponse = sdiResponse.substring(3);
+
+    for (int i = 0; i < sdiReponse.length(); i++) {
+        char c = sdiReponse.charAt(i);
+        if (c == '+') {
+            sdiResponse.setCharAt(i, ',');  // replace any + with ,
+        }
+    }
+
+    /* clear buffer */
+    if (sdiResponse.length() > 1) {
+        bus.clearBuffer();
+    }
+
+    if (sdiResponse == ""){
+        sdiResponse = "-9,-9,-9";   // no reading
+    }
+
+    return sdiResponse;
+}
+
+
+
+
+/* PRIVATE HELPERS */
+
 /**
  * helper function 
  * sync RTC to system time from Iridium RockBlock modem
@@ -213,3 +294,47 @@ void RemoteLogger::sync_clock(){
         String post_time = rtc.now().timestamp();
     }
 }
+
+
+
+
+/* PIN SETTERS */
+
+/**
+ * LED pin
+ * default pin 8 - built-in green LED on Feather M0 Adalogger 
+ * can modify if additional LEDs are added 
+*/
+void RemoteLogger::setLedPin(byte pin){ ledPin = pin; }
+
+/**
+ * input for checking battery voltage
+ * pin 9 on Feather M0 Adalogger (check docs for other boards)
+*/
+void RemoteLogger::setBattPin(byte pin){ vbatPin = pin; }
+
+/**
+ * TPL done pin 
+ * pin A0 on Feather M0 Adalogger - only analog output pin
+ * check docs for other boards (need analog output)
+*/
+void RemoteLogger::setTplPin(byte pin){ tplPin = pin; }
+
+/**
+ * Iridium sleep pin (grey - pin 7)
+ * default pin 13 - modify if changing wiring
+*/
+void RemoteLogger::setIridSlpPin(byte pin){ IridSlpPin = pin; }
+
+/**
+ * chip select pin for SD card
+ * pin 4 on Feather M0 Adalogger (check docs for other boards)
+*/
+void RemoteLogger::setSDSelectPin(byte pin){ chipSelect = pin; }
+
+/**
+ * first input data pin for SDI-12
+ * may add another for second SDI-12 device
+ * default pin 12 - modify if changing wiring
+*/
+//void RemoteLogger::setDataPin(byte pin){ dataPin = pin; }
