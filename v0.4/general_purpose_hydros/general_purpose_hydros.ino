@@ -86,7 +86,7 @@ String prep_msg(){
     String(out_datetimes[0]).substring(5, 7) + 
     String(out_datetimes[0]).substring(8, 10) + 
     String(out_datetimes[0]).substring(11, 13) + ":" +
-    String(round(out_batt_v[num_rows-1] * 100)) + ":" +
+    String(round(out_batt_v[num_rows-1] * 100)) + ":" +   
     String(round(out_mem[num_rows-1] / 100)) + ":";
   
   for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
