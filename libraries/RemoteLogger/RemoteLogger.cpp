@@ -105,9 +105,9 @@ void RemoteLogger::read_params(){
 
 void RemoteLogger::blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms){
     for(int i = 1; i <= n; i++){
-        digitalWrite(LED_PIN, HIGH);
+        digitalWrite(ledPin, HIGH);
         delay(high_ms);
-        digitalWrite(LED_PIN, LOW);
+        digitalWrite(ledPin, LOW);
         delay(low_ms);
     }
     delay(btw_ms);

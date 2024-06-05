@@ -96,7 +96,7 @@ class RemoteLogger
 
         // PIN NUMBERS
         /* board-specific constants (Feather M0) */
-        const byte LED_PIN = 8;                     // Built-in LED pin
+        const byte ledPin = 8;                     // Built-in LED pin
         const byte BATT_PIN = 9;                    // Battery pin
         /** TODO: want this to be flexible --> maybe put data pin as variable into sampling function */
         const byte DATA_PIN = 12;                   // The pin of the SDI-12 data bus (usually carries data from sensor) 

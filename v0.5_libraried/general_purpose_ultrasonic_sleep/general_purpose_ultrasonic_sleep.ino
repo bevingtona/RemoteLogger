@@ -185,7 +185,7 @@ void loop(void) {
 
 void set_pins(){
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
-  pinMode(rl.LED_PIN, OUTPUT); digitalWrite(rl.LED_PIN, HIGH); delay(50); digitalWrite(rl.LED_PIN, LOW); delay(50);
+  pinMode(rl.ledPin, OUTPUT); digitalWrite(rl.ledPin, HIGH); delay(50); digitalWrite(rl.ledPin, LOW); delay(50);
   
   pinMode(rl.ULTRASONIC_SET_PIN, OUTPUT); 
   digitalWrite(rl.ULTRASONIC_SET_PIN, HIGH); delay(50);

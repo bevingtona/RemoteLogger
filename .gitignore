@@ -9,3 +9,5 @@ paperwork/
 libraries/*
 !libraries/RemoteLogger
 v0.5_libraried/weather_stations.code-workspace
+
+presentations/

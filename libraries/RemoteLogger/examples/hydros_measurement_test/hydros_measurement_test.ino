@@ -28,7 +28,7 @@ RemoteLogger rl(my_letter, my_header);
 
 void setup() {
   // put your setup code here, to run once:
-  pinMode(rl.LED_PIN, OUTPUT);
+  pinMode(rl.ledPin, OUTPUT);
 
   rl.start_data_bus(); //start the SDI-12 data bus
 }

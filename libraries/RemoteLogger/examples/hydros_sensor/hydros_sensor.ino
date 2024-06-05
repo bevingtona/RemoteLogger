@@ -180,7 +180,7 @@ void loop(void){
 void set_pins(){
   //set Irid power and LED pins  
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50); //Irid power pin (I think) - redundant, done below
-  pinMode(rl.LED_PIN, OUTPUT); digitalWrite(rl.LED_PIN, HIGH); delay(50); digitalWrite(rl.LED_PIN, LOW); delay(50);
+  pinMode(rl.ledPin, OUTPUT); digitalWrite(rl.ledPin, HIGH); delay(50); digitalWrite(rl.ledPin, LOW); delay(50);
   
   //set SDI-12 data bus pin
   pinMode(rl.DATA_PIN, INPUT); 
