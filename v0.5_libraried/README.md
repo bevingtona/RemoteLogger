@@ -1,12 +1,56 @@
 # Version 0.5 - Adding Libraries
 
-### Note: files in libraries/WeatherStation are the current files for the WeatherStation library applied across the .ino files. Do not change the name of the libraries or WeatherStation directories
+### Note: files in libraries/RemoteLogger are the current files for the WeatherStation library applied across the .ino files. Do not change the name of the libraries or RemoteLogger directories
 
 
 Author: Rachel Pagdin
 
 
 ## Library add log: 
+
+
+### Jun 5, 2024:
+Functions of logger to add to library:
+- [x] basic functions (blink, csv write, battery sample)
+- [x] irid functions (send, test, update RTC)
+- [ ] prep message to send over iridium from CSV
+    - needs: 
+        - format of header string (e.g. "sffff") for CSV parser
+        - the names of each column - Map object? (like a dictionary)
+        - variable number of spaces to hold data points (up to 6 for OTT) - float array? 
+- [ ] setup functions
+    - [ ] start data busses (SDI-12, I2C, etc)
+    - [ ] start SD card
+    - [ ] start RTC
+    - [ ] read parameters from param file
+    - [ ] run test mode function (test params, write to file, print a bunch of stuff to serial)
+- [ ] sampling functions
+    - [x] Hydros
+    - [ ] OTT (easy to do - same SDI-12 as HYDROS, only measurement command changed)
+    - [ ] Analite (analog)
+    - [ ] ultrasonic (digital - needs two pins, no bus)
+- [ ] take measurement upper function - low priority
+    - needs:
+        - variable length list of sampling functions - callable objects
+        - 
+- [x] setters for pin assignments
+
+Notes:
+- end goal: want to be able to start a type of connection (SDI-12, I2C, etc) with connected pins and header info as input
+
+sample_hydros_M:
+- have sensor address and SDI12 object as input - could attach two Hydros units if you want, or another different SDI-12 compatible sensor 
+- user is responsible for creating SDI12 object and beginning connection
+- can do same thing for both OTT sample functions -- maybe could even make all into one sample_sdi12 function under the hood (supply measurement command as well as bus and sensor address)
+
+
+
+### Jun 4, 2024:
+- basic data logger functions into library: blinky, write_to_csv, sample_batt_v, tpl_done (new), send_msg + helper function sync_clock
+- removed watchdog from Iridium send_msg -- look out for issues this may cause 
+    - didn't fully understand how it worked -- seemed to be enabled and disabled around no code (so where would it get stuck?)
+- all in library_v0.2 folder
+
 
 
 ### Mar 27, 2024:
