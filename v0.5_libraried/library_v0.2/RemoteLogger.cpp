@@ -7,16 +7,43 @@
 #include <Arduino.h>
 #include <RemoteLogger.h>
 
+/* CONSTRUCTORS AND STARTUP */
+
 RemoteLogger::RemoteLogger(){
     modem(IridiumSerial);        // initialize Iridium object
 
-    /** TODO: this may not be the best spot for this if user can change pins -- when do they do that? */
+    /** TODO: remove, this is default header for Hydros21 */
+    myHeader = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
+}
+
+RemoteLogger::RemoteLogger(String header){
+    modem(IridiumSerial);       //initialize Iridium object
+
+    myHeader = header;
+}
+
+/**
+ * sets up pins and starts up external hardware (RTC, SD)
+ * user is responsible for setting up any sensors (SDI-12, etc) to pass to sample functions
+*/
+void RemoteLogger::begin(){
+    // set up main logger pins
     pinMode(ledPin, OUTPUT);
     pinMode(vbatPin, INPUT);
     pinMode(tplPin, OUTPUT);
     pinMode(IridSlpPin, OUTPUT);
-    pinMode(dataPin, INPUT);
+
+    // start RTC
+    rtc.begin();
+
+    // start SD card
+    SD.begin(chipSelect);
+
+    /* would read any parameters here */
 }
+
+
+
 
 /* BASIC UNIT FUNCTIONS */
 
@@ -209,6 +236,88 @@ void RemoteLogger::irid_test(String msg){
     
 }
 
+/**
+ * prepare message from hourly data file to send via Iridium to database
+ * actual data values are multiplied by varying powers of 10 to remove decimals
+ * see documentation for letter-to-header mappings and multipliers
+ * 
+ * e.g. 
+ * Data file: 
+ * datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm
+ * 2001-01-10T01:11:05,4.31,24627,10,18.7,3
+ * 
+ * Message:
+ * ABC:01011001:431,246,10,187,3:
+*/
+String RemoteLogger::prep_msg(){
+    // process header to determine number of columns (parameters)
+    int num_params = count_params(myHeader);
+    String csv_setting = produce_csv_setting(num_params);
+
+    SD.begin(chipSelect);       //start the SD card connection
+    
+    char buf[csv_setting.length()+1];
+    csv_setting.toCharArray(buf, csv_setting.length()+1);
+    CSV_Parser cp(buf, true, ',');
+    cp.readSDfile("/HOURLY.csv");
+    int num_rows = cp.getRowsCount();
+
+    // figure out where each parameter's info is in the dictionary
+    int **headerIndex;
+    headerIndex[num_params];
+    populate_header_index(headerIndex);
+
+    // generate the letters
+    String letters = "";
+    for(int i = 0; i < num_params; i++){
+        letters += LETTERS[*headerIndex[i]];
+    }
+
+    String datastring_msg = letters + ":";
+
+    int column = 0;        // position of the header we're on
+    String delim = ",";
+
+    //datetime (of first measurement in message)
+    char **out_datetimes = (char **)cp[column];       // get list of datetimes 
+    datastring_msg = datastring_msg + 
+        String(out_datetimes[0]).substring(2,4) +
+        String(out_datetimes[0]).substring(5,7) +
+        String(out_datetimes[0]).substring(8,10) +
+        String(out_datetimes[0]).substring(11,13) + ":";
+
+    column++;
+
+    float *floatOut;        //temporary variable for float columns to live in
+
+    //battery voltage (most recent)
+    floatOut = (float *)cp[column];
+    datastring_msg = datastring_msg + String(round(floatOut[num_rows-1] * MULTIPLIERS[*headerIndex[column]])) + ":";
+
+    column++;
+
+    //free memory (most recent)
+    floatOut = (float *)cp[column];
+    datastring_msg = datastring_msg + String(round(floatOut[num_rows-1] * MULTIPLIERS[*headerIndex[column]])) + ":";
+
+    //sampled data
+    for (int row = 0; row < num_rows; row++) {        // for each row in the data file
+        column = 3;    //start each time at the start of the sampled data (fourth column)
+
+        while (column < num_params) {      // for each column (sampled data point) in the row 
+            floatOut = (float *)cp[column];
+            datastring_msg = datastring_msg + String(round(floatOut[row] * MULTIPLIERS[*headerIndex[column]]));
+
+            if(column != num_params-1) { datastring_msg += ","; }           // add commas between data points
+            else { datastring_msg += ":"; }     // add a colon only to data from last column
+
+            column++;       //go to the next column
+        }
+    }
+    
+    return datastring_msg;
+}
+
 
 
 
@@ -293,6 +402,74 @@ void RemoteLogger::sync_clock(){
         rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
         String post_time = rtc.now().timestamp();
     }
+}
+
+/**
+ * helper function
+ * count number of comma-separated parameters in header for CSV file
+*/
+int RemoteLogger::count_params(String header){
+    if (header.length() < 1) { return 0; }          // no parameters - empty string
+
+    int ctr = 1, index, prevIndex;
+    String delim = ",";
+
+    index = header.indexOf(delim);
+    while(index != -1){
+        ctr++;
+        prevIndex = index;
+        index = header.indexOf(delim, prevIndex+1);
+    }
+
+    return ctr;
+}
+
+/**
+ * helper function
+ * generate string for argument to CSV parser 
+ * format e.g. "sffff" for a string column and four float columns
+*/
+String RemoteLogger::produce_csv_setting(int n){
+    String setting = "s";
+    for (int i = 1; i < n; i++){
+        setting += "f";
+    }
+    return setting;
+}
+
+/**
+ * helper function
+ * headerIndex array contains the index for metadata about the header title in the library dictionary (set of arrays)
+ * e.g. header "water_level_mm" at index 0 in dictionary, stored at index 3 in header 
+ * so headerIndex array would contain value 0 at position 3
+*/
+void RemoteLogger::populate_header_index(int **headerIndex){
+    int index, prevIndex = -1, temp;
+    String delim = ",", columnName;
+
+    for(int column = 0; column < num_params-1; column++) {
+        index = myHeader.indexOf(delim, prevIndex+1);       //find first comma
+        columnName = myHeader.substring(prevIndex+1, index);        //first column name      
+        *headerIndex[column] = find_key(columnName);            //find address of this column header in dictionary
+
+        prevIndex = index;
+    }
+    index = myHeader.indexOf(delim, prevIndex+1);
+    columnName = header.substring(prevIndex+1);     //last column name
+    *headerIndex[num_params-1] = find_key(columnName);
+}
+
+/**
+ * helper function
+ * find index location of key (column header name) in dictionary headers array
+*/
+int RemoteLogger::find_key(String key){
+    for (int i = 0; i < TOTAL_KEYS; i++){
+        if (HEADERS[i] == key){
+            return i;       // return index where key was found
+        }
+    }
+    return -1;    //not found
 }
 
 

@@ -1,6 +1,6 @@
 # Version 0.5 - Adding Libraries
 
-### Note: files in libraries/RemoteLogger are the current files for the WeatherStation library applied across the .ino files. Do not change the name of the libraries or RemoteLogger directories
+### Note: files in libraries/RemoteLogger are the current files for the RemoteLogger library applied across the .ino files. Do not change the name of the libraries or RemoteLogger directories
 
 
 Author: Rachel Pagdin
@@ -9,17 +9,17 @@ Author: Rachel Pagdin
 ## Library add log: 
 
 
-### Jun 5, 2024:
+### Jun 5-6, 2024:
 Functions of logger to add to library:
 - [x] basic functions (blink, csv write, battery sample)
 - [x] irid functions (send, test, update RTC)
-- [ ] prep message to send over iridium from CSV
+- [x] prep message to send over iridium from CSV
     - needs: 
         - format of header string (e.g. "sffff") for CSV parser
         - the names of each column - Map object? (like a dictionary)
-        - variable number of spaces to hold data points (up to 6 for OTT) - float array? 
+        - variable number of spaces to hold data points (up to 6 for OTT) - float array? --> ended up doing a loop, held in CSV parser until accessed each loop
 - [ ] setup functions
-    - [ ] start data busses (SDI-12, I2C, etc)
+    - [ ] start data busses (SDI-12, I2C, etc) - make this responsibility of user
     - [ ] start SD card
     - [ ] start RTC
     - [ ] read parameters from param file
@@ -35,13 +35,17 @@ Functions of logger to add to library:
         - 
 - [x] setters for pin assignments
 
-Notes:
+#### Notes:
 - end goal: want to be able to start a type of connection (SDI-12, I2C, etc) with connected pins and header info as input
 
 sample_hydros_M:
 - have sensor address and SDI12 object as input - could attach two Hydros units if you want, or another different SDI-12 compatible sensor 
 - user is responsible for creating SDI12 object and beginning connection
 - can do same thing for both OTT sample functions -- maybe could even make all into one sample_sdi12 function under the hood (supply measurement command as well as bus and sensor address)
+
+prep_msg:
+- changed to numbered indexing - faster, no type issues between String and char array types
+- kept the header parsing to use sampled data headers to access letter headers and value multipliers (in dictionary)
 
 
 
