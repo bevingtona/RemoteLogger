@@ -19,9 +19,9 @@ Functions of logger to add to library:
         - the names of each column - Map object? (like a dictionary)
         - variable number of spaces to hold data points (up to 6 for OTT) - float array? --> ended up doing a loop, held in CSV parser until accessed each loop
 - [ ] setup functions
-    - [ ] start data busses (SDI-12, I2C, etc) - make this responsibility of user
-    - [ ] start SD card
-    - [ ] start RTC
+    - [x] start data busses (SDI-12, I2C, etc) --> make this responsibility of user
+    - [x] start SD card
+    - [x] start RTC
     - [ ] read parameters from param file
     - [ ] run test mode function (test params, write to file, print a bunch of stuff to serial)
 - [ ] sampling functions

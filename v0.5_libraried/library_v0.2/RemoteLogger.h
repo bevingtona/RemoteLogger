@@ -16,7 +16,7 @@
 #include <CSV_Parser.h>         // for reading from CSV
 #include <SDI-12.h>             // for SDI-12 sensors
 #include <QuickStats.h>         // statistics - used for ultrasonic
-
+#include <MemoryFree.h>         // free memory - deprecate eventually?
 
 #define IridiumSerial Serial1       // define port for Iridium serial communication
 
@@ -32,7 +32,15 @@ class RemoteLogger
         void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms);
         void write_to_csv(String header, String datastring_for_csv, String outname);
         float sample_batt_v();
+        int sample_memory();
         void tpl_done();
+
+        /* TRACKING */
+        void increment_samples();
+        int num_samples();
+        int num_hours();
+        void reset_sample_counter();
+        void reset_hourly();
 
         /* TELEMETRY */
         int send_msg(String my_msg);    // send message over Iridium

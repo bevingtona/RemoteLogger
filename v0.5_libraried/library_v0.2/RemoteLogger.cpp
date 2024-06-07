@@ -106,6 +106,14 @@ float RemoteLogger::sample_batt_v(){
 }
 
 /**
+ * sample amount of RAM (memory) available on board
+
+*/
+int RemoteLogger::sample_memory(){
+    return freeMemory();
+}
+
+/**
  * alert TPL done
  * use A0 as output on Feather M0 Adalogger (only analog output)
  * TODO: set A0 to low in setup code first thing to avoid alerting prematurely?
@@ -116,6 +124,63 @@ void RemoteLogger::tpl_done(){
     digitalWrite(tplPin, LOW); delay(50); digitalWrite(tplPin, HIGH); delay(50);
     digitalWrite(tplPin, LOW); delay(50); digitalWrite(tplPin, HIGH); delay(50);
     digitalWrite(tplPin, LOW); delay(50); digitalWrite(tplPin, HIGH); delay(50);
+}
+
+
+
+
+/* TRACKING */
+
+/**
+ * increment the counter tracking how many samples have been taken since the last write to hourly
+ * this counter should not exceed 4 for 15min TPL interval
+ * use num_samples to access counter value
+*/
+void RemoteLogger::increment_samples(){
+    write_to_csv("n", "1", "/TRACKING.csv");
+}
+
+/**
+ * access counter of samples since last write to hourly
+ * should not exceed 4 for 15min TPL interval
+ * use increment_samples to increment counter
+*/
+int RemoteLogger::num_samples(){
+    CSV_Parser cp("s", true, ',');     //for reading from TRACKING.csv
+    cp.readSDfile("/TRACKING.csv");
+    return cp.getRowsCount() - 1; //don't count the header
+}
+
+/**
+ * access counter of number of hourly samples waiting to be transmitted
+*/
+int RemoteLogger::num_hours(){
+    int num_params = count_params(myHeader);
+    String csv_setting = produce_csv_setting(num_params);
+    char buf[csv_setting.length()+1];
+    csv_setting.toCharArray(buf, csv_setting.length()+1);
+
+    CSV_Parser cp(buf, true, ',');
+    cp.readSDfile("/HOURLY.csv");
+
+    return cp.getRowsCount();
+}
+
+/**
+ * set sample counter to zero
+ * counts samples taken since a write to hourly
+*/
+void RemoteLogger::reset_sample_counter(){
+    SD.remove("/TRACKING.csv");
+}
+
+/**
+ * set hourly counter to zero
+ * counts hourly samples waiting to be transmitted
+ * warning: resetting this counter deletes all data stored in hourly file
+*/
+void RemoteLogger::reset_hourly(){
+    SD.remove("/HOURLY.csv");
 }
 
 
