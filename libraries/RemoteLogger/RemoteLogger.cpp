@@ -10,15 +10,11 @@
 /* CONSTRUCTORS AND STARTUP */
 
 RemoteLogger::RemoteLogger(){
-    modem(IridiumSerial);        // initialize Iridium object
-
     /** TODO: remove, this is default header for Hydros21 */
     myHeader = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
 }
 
 RemoteLogger::RemoteLogger(String header){
-    modem(IridiumSerial);       //initialize Iridium object
-
     myHeader = header;
 }
 
@@ -330,7 +326,7 @@ String RemoteLogger::prep_msg(){
     // figure out where each parameter's info is in the dictionary
     int **headerIndex;
     headerIndex[num_params];
-    populate_header_index(headerIndex);
+    populate_header_index(headerIndex, num_params);
 
     // generate the letters
     String letters = "";
@@ -411,11 +407,11 @@ String RemoteLogger::sample_hydros_M(SDI12 bus, int sensor_address){
     }
 
     /* clear buffer */
-    if (sdiReponse.length() > 1) {
+    if (sdiResponse.length() > 1) {
         bus.clearBuffer();
     }
     delay(2000);        // delay between taking reading and requesting data
-    sdiReponse = "";    // clear response string (to get ready to read data)
+    sdiResponse = "";    // clear response string (to get ready to read data)
 
     myCommand = String(sensor_address) + "D0!";         // string to request data from last measurement
     bus.sendCommand(myCommand);
@@ -429,10 +425,10 @@ String RemoteLogger::sample_hydros_M(SDI12 bus, int sensor_address){
         }
     }
 
-    sdiReponse = sdiResponse.substring(3);
+    sdiResponse = sdiResponse.substring(3);
 
-    for (int i = 0; i < sdiReponse.length(); i++) {
-        char c = sdiReponse.charAt(i);
+    for (int i = 0; i < sdiResponse.length(); i++) {
+        char c = sdiResponse.charAt(i);
         if (c == '+') {
             sdiResponse.setCharAt(i, ',');  // replace any + with ,
         }
@@ -508,7 +504,7 @@ String RemoteLogger::produce_csv_setting(int n){
  * e.g. header "water_level_mm" at index 0 in dictionary, stored at index 3 in header 
  * so headerIndex array would contain value 0 at position 3
 */
-void RemoteLogger::populate_header_index(int **headerIndex){
+void RemoteLogger::populate_header_index(int **headerIndex, int num_params){
     int index, prevIndex = -1, temp;
     String delim = ",", columnName;
 
@@ -520,7 +516,7 @@ void RemoteLogger::populate_header_index(int **headerIndex){
         prevIndex = index;
     }
     index = myHeader.indexOf(delim, prevIndex+1);
-    columnName = header.substring(prevIndex+1);     //last column name
+    columnName = myHeader.substring(prevIndex+1);     //last column name
     *headerIndex[num_params-1] = find_key(columnName);
 }
 

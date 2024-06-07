@@ -6,7 +6,7 @@
 
 #include <RemoteLogger.h>
 
-const byte dataPin = 12;            //pin for SDI-12 data bus on Hydros
+const int dataPin = 12;            //pin for SDI-12 data bus on Hydros
 const int sensorAddress = 0;        //address for Hydros on SDI-12
 SDI12 mySDI12(dataPin);             //data bus object
 
@@ -53,7 +53,7 @@ void loop(void){
         logger.write_to_csv(header, presentTime.timestamp() + "," + sample, "/HOURLY.csv");
 
         // determine whether or not to send a message
-        int hourlySamples = logger.num_hourly();
+        int hourlySamples = logger.num_hours();
         if (hourlySamples >= 4 & hourlySamples < 10) {   // more than 4 hours -- send message
             String msg = logger.prep_msg();
             int iridErr = logger.send_msg(msg);

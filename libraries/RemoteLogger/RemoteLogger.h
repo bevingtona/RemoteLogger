@@ -14,11 +14,13 @@
 #include <IridiumSBD.h>         // for working with Iridium RockBlock modem
 #include <RTClib.h>             // for working with RTC
 #include <CSV_Parser.h>         // for reading from CSV
-#include <SDI-12.h>             // for SDI-12 sensors
+#include <SDI12.h>             // for SDI-12 sensors
 #include <QuickStats.h>         // statistics - used for ultrasonic
 #include <MemoryFree.h>         // free memory - deprecate eventually?
 
 #define IridiumSerial Serial1       // define port for Iridium serial communication
+#define TOTAL_KEYS 6                // number of entries in dictionary
+//IridiumSBD modem(IridiumSerial);
 
 class RemoteLogger
 {
@@ -65,23 +67,23 @@ class RemoteLogger
         void sync_clock();      // sync RTC to Iridium time - helper to send_msg and test_irid
         int count_params(String header);            // count parameters in comma-separated header - helper to prep_msg
         String produce_csv_setting(int n);          // generate argument for CSV parsing - helper to prep_msg
-        void populate_header_index(int **headerIndex);             // determine where each header lives in dictionary - helper to prep_msg
+        void populate_header_index(int **headerIndex, int num_params);             // determine where each header lives in dictionary - helper to prep_msg
         int find_key(String key);                   // find index of column name in dictionary
 
         String myHeader;
 
-        IridiumSDB modem;
+        IridiumSBD modem{IridiumSerial};
 
         byte ledPin = 8;        // built-in green LED pin on Feather M0 Adalogger - can modify for other boards
         byte vbatPin = 9;          // built-in battery pin on Feather M0 Adalogger - can modify for other boards
         byte tplPin = A0;           // attach TPL to A0 (only analog output pin on Adalogger)
         byte IridSlpPin = 13;           // attach Irid sleep pin (7 - grey) to pin 13 - can modify to other digital pin
         byte chipSelect = 4;          // SD select pin is 4 on Feather M0 Adalogger - can modify for other boards
-        //byte dataPin = 12;              // attach SDI-12 data line to pin 12 
 
         /* dictionary of headers to message letters and value multipliers */
-        int TOTAL_KEYS = 6;           // number of supported column headers (length of all dictionary arrays)
-        String HEADERS[] = {"water_level_mm", "water_temp_c", "water_ec_dcm", "batt_v", "datetime", "memory"};
-        String LETTERS[] = {"A", "B", "C", "", "", ""};
-        float MULTIPLIERS[] = {1, 10, 1, 100, 1, 0.01};
-}
+        String HEADERS[TOTAL_KEYS] = {"water_level_mm", "water_temp_c", "water_ec_dcm", "batt_v", "datetime", "memory"};
+        String LETTERS[TOTAL_KEYS] = {"A", "B", "C", "", "", ""};
+        float MULTIPLIERS[TOTAL_KEYS] = {1, 10, 1, 100, 1, 0.01};
+};
+
+#endif
