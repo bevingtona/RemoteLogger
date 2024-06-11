@@ -38,11 +38,22 @@ IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
 SDI12 mySDI12(dataPin);           // Define the SDI-12 bus
 QuickStats stats;                 // Instance of QuickStats
 
+String parseData(String dataString) {
+
+  int tempSignIndex = dataString.indexOf('-', 1); // Start search after the first character
+
+  if (tempSignIndex > 0 && dataString[tempSignIndex - 1] != ',') {
+
+  dataString = dataString.substring(0, tempSignIndex) + "," + dataString.substring(tempSignIndex);
+  }
+  return dataString;
+}
+
 String take_measurement() {
 
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," + 
-    sample_ott_M() + "," + 
+    parseData(sample_ott_M()) + "," + 
     sample_ott_V();
 
   return msmt;
@@ -78,7 +89,6 @@ String prep_msg(){
     }
   return datastring_msg;
 }
-
 
 void setup(void) {
   
@@ -146,9 +156,9 @@ void loop(void) {
     Serial.print("Write to /HOURLY.csv = ");
     write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
     SD.begin(chipSelect);
-    CSV_Parser cp("sfffff", true, ',');  // Set paramters for parsing the log file
+    CSV_Parser cp("sffffffff", true, ',');  // Set paramters for parsing the log file
     cp.readSDfile("/HOURLY.csv");
-    int num_rows_hourly = cp.getRowsCount()-1;  //Get # of rows minus header
+    int num_rows_hourly = cp.getRowsCount();  //Get # of rows minus header
     Serial.println(num_rows_hourly);
     
     // If HOURLY >= 2 rows, then send
@@ -177,7 +187,7 @@ void loop(void) {
       SD.remove("/HOURLY.csv");        
       Serial.println("Remove tracking");
       SD.remove("/TRACKING.csv");
-}
+  }
 
     Serial.println("Remove tracking");
     SD.remove("/TRACKING.csv");
