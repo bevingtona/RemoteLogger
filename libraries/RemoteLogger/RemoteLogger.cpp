@@ -71,7 +71,7 @@ void RemoteLogger::blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t bt
  * outname: name of the CSV file (e.g. /HOURLY.csv)
 */
 void RemoteLogger::write_to_csv(String header, String datastring_for_csv, String outname){
-    File dataFile;      // File instance -- only used within this function
+    //File dataFile;      // File instance -- only used within this function
 
     /* If file doesn't exist, write header and data, otherwise only write data */
     if (!SD.exists(outname)){
@@ -122,6 +122,15 @@ void RemoteLogger::tpl_done(){
     digitalWrite(tplPin, LOW); delay(50); digitalWrite(tplPin, HIGH); delay(50);
 }
 
+/**
+ * remove datalogging and tracking files from the SD card
+ */
+void RemoteLogger::wipe_files(){
+    SD.remove("/TRACKING.csv");
+    SD.remove("/DATA.csv");
+    SD.remove("/HOURLY.csv");
+}
+
 
 
 
@@ -151,7 +160,7 @@ int RemoteLogger::num_samples(){
  * access counter of number of hourly samples waiting to be transmitted
 */
 int RemoteLogger::num_hours(){
-    int num_params = count_params(myHeader);
+    int num_params = count_params();
     String csv_setting = produce_csv_setting(num_params);
     char buf[csv_setting.length()+1];
     csv_setting.toCharArray(buf, csv_setting.length()+1);
@@ -312,62 +321,79 @@ void RemoteLogger::irid_test(String msg){
 */
 String RemoteLogger::prep_msg(){
     // process header to determine number of columns (parameters)
-    int num_params = count_params(myHeader);
+    int num_params = count_params();
+    Serial.println(F("preparing csv setting..."));         /** TODO: remove */
     String csv_setting = produce_csv_setting(num_params);
+    Serial.println(csv_setting);    /** TODO: remove */
 
     SD.begin(chipSelect);       //start the SD card connection
     
-    char buf[csv_setting.length()+1];
-    csv_setting.toCharArray(buf, csv_setting.length()+1);
-    CSV_Parser cp(buf, true, ',');
-    cp.readSDfile("/HOURLY.csv");
-    int num_rows = cp.getRowsCount();
+    Serial.println(freeMemory());       /** TODO: remove */
+    Serial.println(F("preparing CSV parser..."));      /** TODO: remove */
+    char buf[csv_setting.length()+1];   Serial.println(1);  /** TODO: remove */
+    csv_setting.toCharArray(buf, csv_setting.length()+1);  Serial.println(2);       /** TODO: remove */
+    Serial.println(freeMemory());       /** TODO: remove */
+    CSV_Parser cp(buf, true, ',');      Serial.println(3);      /** TODO: remove */
+    cp.readSDfile("/HOURLY.csv");       Serial.println(4);      /** TODO: remove */
+    int num_rows = cp.getRowsCount();   Serial.println(5);      /** TODO: remove */
 
+    Serial.println(6);      /** TODO: remove */
+
+    Serial.println(F("preparing header index..."));        /** TODO: remove */
     // figure out where each parameter's info is in the dictionary
     int **headerIndex;
     headerIndex[num_params];
     populate_header_index(headerIndex, num_params);
 
+    Serial.println(F("building message..."));      /** TODO: remove */
     // generate the letters
-    String letters = "";
+    String datastring_msg = "";
+    datastring_msg.reserve(200);
     for(int i = 0; i < num_params; i++){
-        letters += LETTERS[*headerIndex[i]];
+        datastring_msg += LETTERS[*headerIndex[i]];
     }
 
-    String datastring_msg = letters + ":";
+    datastring_msg += ":";
 
     int column = 0;        // position of the header we're on
-    String delim = ",";
 
+    Serial.println(F("date and time..."));     /** TODO: remove */
     //datetime (of first measurement in message)
     char **out_datetimes = (char **)cp[column];       // get list of datetimes 
-    datastring_msg = datastring_msg + 
-        String(out_datetimes[0]).substring(2,4) +
-        String(out_datetimes[0]).substring(5,7) +
-        String(out_datetimes[0]).substring(8,10) +
-        String(out_datetimes[0]).substring(11,13) + ":";
+    datastring_msg += String(out_datetimes[0]).substring(2,4); 
+    datastring_msg += String(out_datetimes[0]).substring(5,7);
+    datastring_msg += String(out_datetimes[0]).substring(8,10);
+    datastring_msg += String(out_datetimes[0]).substring(11,13);
+    datastring_msg += ":";
+
+    delete out_datetimes;       // free up memory
 
     column++;
 
     float *floatOut;        //temporary variable for float columns to live in
 
+    Serial.println(F("battery voltage and memory..."));   /** TODO: remove */
     //battery voltage (most recent)
     floatOut = (float *)cp[column];
-    datastring_msg = datastring_msg + String(round(floatOut[num_rows-1] * MULTIPLIERS[*headerIndex[column]])) + ":";
+    datastring_msg += String(round(floatOut[num_rows-1] * MULTIPLIERS[*headerIndex[column]]));
+    datastring_msg += ":";
 
     column++;
 
     //free memory (most recent)
     floatOut = (float *)cp[column];
-    datastring_msg = datastring_msg + String(round(floatOut[num_rows-1] * MULTIPLIERS[*headerIndex[column]])) + ":";
+    datastring_msg += String(round(floatOut[num_rows-1] * MULTIPLIERS[*headerIndex[column]])); 
+    datastring_msg += ":";
 
+    Serial.print(F("adding data... "));           /** TODO: remove */
     //sampled data
     for (int row = 0; row < num_rows; row++) {        // for each row in the data file
         column = 3;    //start each time at the start of the sampled data (fourth column)
+        Serial.print(F("row ")); Serial.print(row); Serial.print(F("   "));   /** TODO: remove */
 
         while (column < num_params) {      // for each column (sampled data point) in the row 
             floatOut = (float *)cp[column];
-            datastring_msg = datastring_msg + String(round(floatOut[row] * MULTIPLIERS[*headerIndex[column]]));
+            datastring_msg += String(round(floatOut[row] * MULTIPLIERS[*headerIndex[column]]));
 
             if(column != num_params-1) { datastring_msg += ","; }           // add commas between data points
             else { datastring_msg += ":"; }     // add a colon only to data from last column
@@ -375,6 +401,11 @@ String RemoteLogger::prep_msg(){
             column++;       //go to the next column
         }
     }
+    Serial.println();       /** TODO: remove */
+
+    // free up memory
+    delete floatOut;
+    delete headerIndex;
     
     return datastring_msg;
 }
@@ -392,8 +423,8 @@ String RemoteLogger::prep_msg(){
  * sensor_address: SDI-12 address of the Hydros sensor, usually assumed to be 0
 */
 String RemoteLogger::sample_hydros_M(SDI12 bus, int sensor_address){
-    String sdiResponse = "";
-    String myCommand = String(sensor_address) + "M!";       // first command to take a measurement
+    sdiResponse = "";
+    myCommand = String(sensor_address) + "M!";       // first command to take a measurement
 
     bus.sendCommand(myCommand);
     delay(30);
@@ -443,6 +474,8 @@ String RemoteLogger::sample_hydros_M(SDI12 bus, int sensor_address){
         sdiResponse = "-9,-9,-9";   // no reading
     }
 
+    bus.clearBuffer();
+
     return sdiResponse;
 }
 
@@ -460,8 +493,10 @@ void RemoteLogger::sync_clock(){
     int err_time = modem.getSystemTime(t);
     if (err_time == ISBD_SUCCESS) {
         String pre_time = rtc.now().timestamp();
+        Serial.print("pretime: "); Serial.println(pre_time);
         rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
         String post_time = rtc.now().timestamp();
+        Serial.print("posttime: "); Serial.println(post_time);
     }
 }
 
@@ -469,18 +504,20 @@ void RemoteLogger::sync_clock(){
  * helper function
  * count number of comma-separated parameters in header for CSV file
 */
-int RemoteLogger::count_params(String header){
-    if (header.length() < 1) { return 0; }          // no parameters - empty string
+int RemoteLogger::count_params(){
+    if (myHeader.length() < 1) { return 0; }          // no parameters - empty string
 
     int ctr = 1, index, prevIndex;
     String delim = ",";
 
-    index = header.indexOf(delim);
+    index = myHeader.indexOf(delim);
     while(index != -1){
         ctr++;
         prevIndex = index;
-        index = header.indexOf(delim, prevIndex+1);
+        index = myHeader.indexOf(delim, prevIndex+1);
     }
+
+    delete &delim;
 
     return ctr;
 }
@@ -508,28 +545,33 @@ void RemoteLogger::populate_header_index(int **headerIndex, int num_params){
     int index, prevIndex = -1, temp;
     String delim = ",", columnName;
 
+    Serial.println(F("starting header index..."));         /** TODO: remove */
     for(int column = 0; column < num_params-1; column++) {
         index = myHeader.indexOf(delim, prevIndex+1);       //find first comma
-        columnName = myHeader.substring(prevIndex+1, index);        //first column name      
-        *headerIndex[column] = find_key(columnName);            //find address of this column header in dictionary
+        Serial.println(1);      /** TODO: remove */
+        columnName = myHeader.substring(prevIndex+1, index);        //first column name     
+        Serial.print(F("searching for ")); Serial.print(columnName);         /** TODO: remove */
+        *headerIndex[column] = find_key(&columnName);            //find address of this column header in dictionary
 
         prevIndex = index;
     }
     index = myHeader.indexOf(delim, prevIndex+1);
     columnName = myHeader.substring(prevIndex+1);     //last column name
-    *headerIndex[num_params-1] = find_key(columnName);
+    *headerIndex[num_params-1] = find_key(&columnName);
 }
 
 /**
  * helper function
  * find index location of key (column header name) in dictionary headers array
 */
-int RemoteLogger::find_key(String key){
+int RemoteLogger::find_key(String *key){
     for (int i = 0; i < TOTAL_KEYS; i++){
-        if (HEADERS[i] == key){
+        if (HEADERS[i] == *key){
+            Serial.print(F("found at ")); Serial.println(i);       /** TODO: remove */
             return i;       // return index where key was found
         }
     }
+    Serial.println(F("not found"));        /** TODO: remove */
     return -1;    //not found
 }
 
@@ -569,10 +611,3 @@ void RemoteLogger::setIridSlpPin(byte pin){ IridSlpPin = pin; }
  * pin 4 on Feather M0 Adalogger (check docs for other boards)
 */
 void RemoteLogger::setSDSelectPin(byte pin){ chipSelect = pin; }
-
-/**
- * first input data pin for SDI-12
- * may add another for second SDI-12 device
- * default pin 12 - modify if changing wiring
-*/
-//void RemoteLogger::setDataPin(byte pin){ dataPin = pin; }

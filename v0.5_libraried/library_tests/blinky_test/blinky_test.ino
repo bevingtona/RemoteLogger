@@ -1,20 +1,23 @@
-/*
-test sketch for blinky in WeatherStation library
-Dec 20, 2023
-*/
+/**
+ * Test for blinky in RemoteLogger library v0.2
+ * Author: Rachel Pagdin
+ * June 12, 2024
+ */
 
-#include <WeatherStation.h>
+#include <RemoteLogger.h>
 
-WeatherStation rl; //note: no parentheses needed if there are no parameters
+RemoteLogger logger{};      // default constructor
+int ctr = 0;
 
-void setup() {
-  // put your setup code here, to run once:
-  rl.begin(); 
+void setup(){
+  Serial.begin(9600);
+  delay(50);
+
+  logger.begin();
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
-  rl.blinky(5,500,200,1000);
-
-  rl.blinky(3,100,300,1000);
+void loop(){
+  logger.blinky(3,500,500,1000);
+  ctr++;
+  Serial.println(ctr);
 }

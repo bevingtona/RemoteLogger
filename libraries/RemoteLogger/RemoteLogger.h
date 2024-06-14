@@ -36,13 +36,14 @@ class RemoteLogger
         float sample_batt_v();
         int sample_memory();
         void tpl_done();
+        void wipe_files();      // wipe tracking, hourly, and data files from SD card
 
         /* TRACKING */
         void increment_samples();
         int num_samples();
         int num_hours();
-        void reset_sample_counter();
-        void reset_hourly();
+        void reset_sample_counter();        // wipe tracker file
+        void reset_hourly();                // wipe hourly file
 
         /* TELEMETRY */
         int send_msg(String my_msg);    // send message over Iridium
@@ -65,12 +66,16 @@ class RemoteLogger
     private:
 
         void sync_clock();      // sync RTC to Iridium time - helper to send_msg and test_irid
-        int count_params(String header);            // count parameters in comma-separated header - helper to prep_msg
+        int count_params();            // count parameters in comma-separated header - helper to prep_msg
         String produce_csv_setting(int n);          // generate argument for CSV parsing - helper to prep_msg
         void populate_header_index(int **headerIndex, int num_params);             // determine where each header lives in dictionary - helper to prep_msg
-        int find_key(String key);                   // find index of column name in dictionary
+        int find_key(String *key);                   // find index of column name in dictionary
 
         String myHeader;
+
+        String myCommand;
+        String sdiResponse;
+        File dataFile;
 
         IridiumSBD modem{IridiumSerial};
 

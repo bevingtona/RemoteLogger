@@ -1,49 +1,44 @@
-
 /**
-* this would be good for an example code 
+ * Test sampling HYDROS21 sensor w/ RemoteLogger library v0.2
+ * Author: Rachel Pagdin
+ * June 12, 2024
+ */
 
-quiet/verbose mode (print or not)
-data pin flexible
-tests for examples
+#include <RemoteLogger.h>
 
-priorities:
-take measurement (different for each sensor combo) --> how to manage?
-- relay different for each 
-- concatenating measurements 
-- may not be necessary 
-generalize take_measurement and prep_msg in lib
+const int dataPin = 12;            //pin for SDI-12 data bus on Hydros
+const int sensorAddress = 0;        //address for Hydros on SDI-12
+SDI12 mySDI12(dataPin);             //data bus object
 
-*/
+String header = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
+// String sample;
+// String msmt;
+int ctr = 0;
 
-#include "RemoteLogger.h"
+RemoteLogger logger(header);
 
-String my_letter = "ABC"; //depends on sensors (what we're measuring) - order matters
-String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
+// String take_measurement(){
+//     msmt = logger.sample_hydros_M(mySDI12, sensorAddress);
+// }
 
-RemoteLogger rl(my_letter, my_header);
+void setup(){
+  Serial.begin(9600);
+  delay(50);
 
-void setup() {
-  // put your setup code here, to run once:
-  pinMode(rl.ledPin, OUTPUT);
-
-  rl.start_data_bus(); //start the SDI-12 data bus
+  Serial.println("starting up...");
+  logger.begin();
+  mySDI12.begin();
+  delay(500);
 }
 
+void loop(){
+  logger.blinky(3, 500, 500, 500);
 
-
-void loop() {
-  // put your main code here, to run repeatedly:
-  rl.blinky(5, 100, 100, 300); //blinky test
-
-  //power to hydros (thru relay)
-  // digitalWrite(rl.HYDROS_SET_PIN, HIGH); delay(50);
-  // digitalWrite(rl.HYDROS_SET_PIN, LOW); delay(1000);
-
-  // take sample from hydros, print to console
-  String hydros_response = rl.sample_hydros_M();
-  Serial.println(hydros_response);
-
-  //cut power to hydros (thru relay)
-  // digitalWrite(rl.HYDROS_UNSET_PIN, HIGH); delay(50);
-  // digitalWrite(rl.HYDROS_UNSET_PIN, LOW); delay(50);
+  if(ctr % 5 == 0){
+    Serial.println(logger.sample_hydros_M(mySDI12, sensorAddress));
+  }
+  else{ Serial.println(ctr); }
+  ctr++;
+  //Serial.println(sample);
+  delay(2000);
 }
