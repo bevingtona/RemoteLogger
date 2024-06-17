@@ -10,7 +10,7 @@ Author: Rachel Pagdin
 
 ### Jun 12, 2024:
 - wrote a little instruction document for setting up the MCU (roughly follows the Adafruit setup tutorial with library installation specific to remote loggers) - see setup.md on rp_edits homepage
-
+    - this needs edits to accomodate for Mac users, add photos
 
 
 

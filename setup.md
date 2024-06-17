@@ -26,11 +26,12 @@ Install the following libraries for the Remote Logger:
 - OneWire 
 - DallasTemperature by Miles Burton
 - Arduino MemoryFree from https://github.com/mpflaga/Arduino-MemoryFree (download as zip)
-- SD by Arduino/Sparkfun
+- SD by Arduino, Sparkfun
 - IridiumSBD by Mikal Hart
 - CSV Parser by Michal Borowski
-- SDI-12 by Kevin M. Smith
+- SDI-12 by Kevin M. Smith (or Sara Damiano)
 - QuickStats by David Dubins
+- RTClib from https://github.com/adafruit/RTClib (download as zip)
 
 Install any dependencies it gives you the option to install.
 
