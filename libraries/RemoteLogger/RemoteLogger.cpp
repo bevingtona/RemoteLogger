@@ -1,7 +1,8 @@
 /**
  * v0.2 of RemoteLogger library for modular remote data loggers
+ * requires input for parameters from user: multipliers, letters, number of parameters, and header
  * Author: Rachel Pagdin
- * June 4, 2024
+ * June 17, 2024
 */
 
 #include <Arduino.h>
@@ -16,6 +17,13 @@ RemoteLogger::RemoteLogger(){
 
 RemoteLogger::RemoteLogger(String header){
     myHeader = header;
+}
+
+RemoteLogger::RemoteLogger(String header, float *multipliers, byte num_params, String letters){
+    myHeader = header;
+    myMultipliers = multipliers;
+    myParams = num_params;
+    myLetters = letters;
 }
 
 /**
@@ -160,8 +168,7 @@ int RemoteLogger::num_samples(){
  * access counter of number of hourly samples waiting to be transmitted
 */
 int RemoteLogger::num_hours(){
-    int num_params = count_params();
-    String csv_setting = produce_csv_setting(num_params);
+    String csv_setting = produce_csv_setting();
     char buf[csv_setting.length()+1];
     csv_setting.toCharArray(buf, csv_setting.length()+1);
 
@@ -321,43 +328,43 @@ void RemoteLogger::irid_test(String msg){
 */
 String RemoteLogger::prep_msg(){
     // process header to determine number of columns (parameters)
-    int num_params = count_params();
-    Serial.println(F("preparing csv setting..."));         /** TODO: remove */
-    String csv_setting = produce_csv_setting(num_params);
-    Serial.println(csv_setting);    /** TODO: remove */
+    // Serial.println(F("preparing csv setting..."));         /** TODO: remove */
+    String csv_setting = produce_csv_setting();
+    // Serial.println(csv_setting);    /** TODO: remove */
 
     SD.begin(chipSelect);       //start the SD card connection
     
-    Serial.println(freeMemory());       /** TODO: remove */
-    Serial.println(F("preparing CSV parser..."));      /** TODO: remove */
+    // Serial.println(freeMemory());       /** TODO: remove */
+    // Serial.println(F("preparing CSV parser..."));      /** TODO: remove */
     char buf[csv_setting.length()+1];   Serial.println(1);  /** TODO: remove */
-    csv_setting.toCharArray(buf, csv_setting.length()+1);  Serial.println(2);       /** TODO: remove */
-    Serial.println(freeMemory());       /** TODO: remove */
-    CSV_Parser cp(buf, true, ',');      Serial.println(3);      /** TODO: remove */
-    cp.readSDfile("/HOURLY.csv");       Serial.println(4);      /** TODO: remove */
-    int num_rows = cp.getRowsCount();   Serial.println(5);      /** TODO: remove */
+    csv_setting.toCharArray(buf, csv_setting.length()+1);  
+    // Serial.println(freeMemory());       /** TODO: remove */
+    CSV_Parser cp(buf, true, ',');      
+    cp.readSDfile("/HOURLY.csv");       
+    int num_rows = cp.getRowsCount();  
 
-    Serial.println(6);      /** TODO: remove */
+    // Serial.println(6);      /** TODO: remove */
 
-    Serial.println(F("preparing header index..."));        /** TODO: remove */
+    // Serial.println(F("preparing header index..."));        /** TODO: remove */
     // figure out where each parameter's info is in the dictionary
-    int **headerIndex;
-    headerIndex[num_params];
-    populate_header_index(headerIndex, num_params);
+    // int **headerIndex;
+    // headerIndex[num_params];
+    // populate_header_index(headerIndex, num_params);
 
-    Serial.println(F("building message..."));      /** TODO: remove */
+    // Serial.println(F("building message..."));      /** TODO: remove */
     // generate the letters
     String datastring_msg = "";
     datastring_msg.reserve(200);
-    for(int i = 0; i < num_params; i++){
-        datastring_msg += LETTERS[*headerIndex[i]];
-    }
+    // for(int i = 0; i < num_params; i++){
+    //     datastring_msg += LETTERS[*headerIndex[i]];
+    // }
 
+    datastring_msg += myLetters;
     datastring_msg += ":";
 
     int column = 0;        // position of the header we're on
 
-    Serial.println(F("date and time..."));     /** TODO: remove */
+    // Serial.println(F("date and time..."));     /** TODO: remove */
     //datetime (of first measurement in message)
     char **out_datetimes = (char **)cp[column];       // get list of datetimes 
     datastring_msg += String(out_datetimes[0]).substring(2,4); 
@@ -372,40 +379,40 @@ String RemoteLogger::prep_msg(){
 
     float *floatOut;        //temporary variable for float columns to live in
 
-    Serial.println(F("battery voltage and memory..."));   /** TODO: remove */
+    // Serial.println(F("battery voltage and memory..."));   /** TODO: remove */
     //battery voltage (most recent)
     floatOut = (float *)cp[column];
-    datastring_msg += String(round(floatOut[num_rows-1] * MULTIPLIERS[*headerIndex[column]]));
+    datastring_msg += String(round(floatOut[num_rows-1] * BATT_MULT));
     datastring_msg += ":";
 
     column++;
 
     //free memory (most recent)
     floatOut = (float *)cp[column];
-    datastring_msg += String(round(floatOut[num_rows-1] * MULTIPLIERS[*headerIndex[column]])); 
+    datastring_msg += String(round(floatOut[num_rows-1] * MEM_MULT)); 
     datastring_msg += ":";
 
-    Serial.print(F("adding data... "));           /** TODO: remove */
+    // Serial.print(F("adding data... "));           /** TODO: remove */
     //sampled data
     for (int row = 0; row < num_rows; row++) {        // for each row in the data file
         column = 3;    //start each time at the start of the sampled data (fourth column)
-        Serial.print(F("row ")); Serial.print(row); Serial.print(F("   "));   /** TODO: remove */
+        // Serial.print(F("row ")); Serial.print(row); Serial.print(F("   "));   /** TODO: remove */
 
-        while (column < num_params) {      // for each column (sampled data point) in the row 
+        while (column < myParams+3) {      // for each column (sampled data point) in the row 
             floatOut = (float *)cp[column];
-            datastring_msg += String(round(floatOut[row] * MULTIPLIERS[*headerIndex[column]]));
+            datastring_msg += String(round(floatOut[row] * myMultipliers[column-3]));
 
-            if(column != num_params-1) { datastring_msg += ","; }           // add commas between data points
+            if(column != myParams+2) { datastring_msg += ","; }           // add commas between data points
             else { datastring_msg += ":"; }     // add a colon only to data from last column
 
             column++;       //go to the next column
         }
     }
-    Serial.println();       /** TODO: remove */
+    // Serial.println();       /** TODO: remove */
 
     // free up memory
     delete floatOut;
-    delete headerIndex;
+    // delete headerIndex;
     
     return datastring_msg;
 }
@@ -504,32 +511,34 @@ void RemoteLogger::sync_clock(){
  * helper function
  * count number of comma-separated parameters in header for CSV file
 */
-int RemoteLogger::count_params(){
-    if (myHeader.length() < 1) { return 0; }          // no parameters - empty string
+// int RemoteLogger::count_params(){
+//     if (myHeader.length() < 1) { return 0; }          // no parameters - empty string
 
-    int ctr = 1, index, prevIndex;
-    String delim = ",";
+//     int ctr = 1, index, prevIndex;
+//     String delim = ",";
 
-    index = myHeader.indexOf(delim);
-    while(index != -1){
-        ctr++;
-        prevIndex = index;
-        index = myHeader.indexOf(delim, prevIndex+1);
-    }
+//     index = myHeader.indexOf(delim);
+//     while(index != -1){
+//         ctr++;
+//         prevIndex = index;
+//         index = myHeader.indexOf(delim, prevIndex+1);
+//     }
 
-    delete &delim;
+//     delete &delim;
 
-    return ctr;
-}
+//     return ctr;
+// }
 
 /**
  * helper function
  * generate string for argument to CSV parser 
  * format e.g. "sffff" for a string column and four float columns
+ * 
+ * TODO: could change this so it directly produces a char array rather than a String -- convert it every time anyway
 */
-String RemoteLogger::produce_csv_setting(int n){
+String RemoteLogger::produce_csv_setting(){
     String setting = "s";
-    for (int i = 1; i < n; i++){
+    for (int i = 1; i < myParams+3; i++){
         setting += "f";
     }
     return setting;
@@ -541,39 +550,39 @@ String RemoteLogger::produce_csv_setting(int n){
  * e.g. header "water_level_mm" at index 0 in dictionary, stored at index 3 in header 
  * so headerIndex array would contain value 0 at position 3
 */
-void RemoteLogger::populate_header_index(int **headerIndex, int num_params){
-    int index, prevIndex = -1, temp;
-    String delim = ",", columnName;
+// void RemoteLogger::populate_header_index(int **headerIndex, int num_params){
+//     int index, prevIndex = -1, temp;
+//     String delim = ",", columnName;
 
-    Serial.println(F("starting header index..."));         /** TODO: remove */
-    for(int column = 0; column < num_params-1; column++) {
-        index = myHeader.indexOf(delim, prevIndex+1);       //find first comma
-        Serial.println(1);      /** TODO: remove */
-        columnName = myHeader.substring(prevIndex+1, index);        //first column name     
-        Serial.print(F("searching for ")); Serial.print(columnName);         /** TODO: remove */
-        *headerIndex[column] = find_key(&columnName);            //find address of this column header in dictionary
+//     Serial.println(F("starting header index..."));         /** TODO: remove */
+//     for(int column = 0; column < num_params-1; column++) {
+//         index = myHeader.indexOf(delim, prevIndex+1);       //find first comma
+//         Serial.println(1);      /** TODO: remove */
+//         columnName = myHeader.substring(prevIndex+1, index);        //first column name     
+//         Serial.print(F("searching for ")); Serial.print(columnName);         /** TODO: remove */
+//         *headerIndex[column] = find_key(&columnName);            //find address of this column header in dictionary
 
-        prevIndex = index;
-    }
-    index = myHeader.indexOf(delim, prevIndex+1);
-    columnName = myHeader.substring(prevIndex+1);     //last column name
-    *headerIndex[num_params-1] = find_key(&columnName);
-}
+//         prevIndex = index;
+//     }
+//     index = myHeader.indexOf(delim, prevIndex+1);
+//     columnName = myHeader.substring(prevIndex+1);     //last column name
+//     *headerIndex[num_params-1] = find_key(&columnName);
+// }
 
 /**
  * helper function
  * find index location of key (column header name) in dictionary headers array
 */
-int RemoteLogger::find_key(String *key){
-    for (int i = 0; i < TOTAL_KEYS; i++){
-        if (HEADERS[i] == *key){
-            Serial.print(F("found at ")); Serial.println(i);       /** TODO: remove */
-            return i;       // return index where key was found
-        }
-    }
-    Serial.println(F("not found"));        /** TODO: remove */
-    return -1;    //not found
-}
+// int RemoteLogger::find_key(String *key){
+//     for (int i = 0; i < TOTAL_KEYS; i++){
+//         if (HEADERS[i] == *key){
+//             Serial.print(F("found at ")); Serial.println(i);       /** TODO: remove */
+//             return i;       // return index where key was found
+//         }
+//     }
+//     Serial.println(F("not found"));        /** TODO: remove */
+//     return -1;    //not found
+// }
 
 
 

@@ -1,7 +1,8 @@
 /**
  * v0.2 of RemoteLogger library for modular remote data loggers 
+ * requires input for parameters from user: multipliers, letters, number of parameters, and header
  * Author: Rachel Pagdin
- * June 4, 2024
+ * June 17, 2024
 */
 
 #ifndef RemoteLogger_h
@@ -28,6 +29,7 @@ class RemoteLogger
         /* CONSTRUCTORS AND STARTUP */
         RemoteLogger();
         RemoteLogger(String header);
+        RemoteLogger(String header, float *multipliers, byte num_params, String letters);
         void begin();      // call after changing any pins you want to change
 
         /* BASIC UNIT FUNCTIONS */
@@ -66,12 +68,15 @@ class RemoteLogger
     private:
 
         void sync_clock();      // sync RTC to Iridium time - helper to send_msg and test_irid
-        int count_params();            // count parameters in comma-separated header - helper to prep_msg
-        String produce_csv_setting(int n);          // generate argument for CSV parsing - helper to prep_msg
+        //int count_params();            // count parameters in comma-separated header - helper to prep_msg
+        String produce_csv_setting();          // generate argument for CSV parsing - helper to prep_msg
         void populate_header_index(int **headerIndex, int num_params);             // determine where each header lives in dictionary - helper to prep_msg
         int find_key(String *key);                   // find index of column name in dictionary
 
         String myHeader;
+        float *myMultipliers;
+        byte myParams;
+        String myLetters;
 
         String myCommand;
         String sdiResponse;
@@ -85,10 +90,13 @@ class RemoteLogger
         byte IridSlpPin = 13;           // attach Irid sleep pin (7 - grey) to pin 13 - can modify to other digital pin
         byte chipSelect = 4;          // SD select pin is 4 on Feather M0 Adalogger - can modify for other boards
 
+        const float BATT_MULT = 100;
+        const float MEM_MULT = 0.01;
+
         /* dictionary of headers to message letters and value multipliers */
-        String HEADERS[TOTAL_KEYS] = {"water_level_mm", "water_temp_c", "water_ec_dcm", "batt_v", "datetime", "memory"};
-        String LETTERS[TOTAL_KEYS] = {"A", "B", "C", "", "", ""};
-        float MULTIPLIERS[TOTAL_KEYS] = {1, 10, 1, 100, 1, 0.01};
+        // String HEADERS[TOTAL_KEYS] = {"water_level_mm", "water_temp_c", "water_ec_dcm", "batt_v", "datetime", "memory"};
+        // String LETTERS[TOTAL_KEYS] = {"A", "B", "C", "", "", ""};
+        // float MULTIPLIERS[TOTAL_KEYS] = {1, 10, 1, 100, 1, 0.01};
 };
 
 #endif
