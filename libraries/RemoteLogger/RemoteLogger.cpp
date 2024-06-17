@@ -19,7 +19,7 @@ RemoteLogger::RemoteLogger(String header){
     myHeader = header;
 }
 
-RemoteLogger::RemoteLogger(String header, float *multipliers, byte num_params, String letters){
+RemoteLogger::RemoteLogger(String header, byte num_params, float *multipliers, String letters){
     myHeader = header;
     myMultipliers = multipliers;
     myParams = num_params;
@@ -205,7 +205,7 @@ void RemoteLogger::reset_hourly(){
  * connect Iridium sleep pin (7 - grey) to pin 13 or change value of IridSlpPin
  * TODO: investigate -- did removing the Watchdog mess things up? try it with the TPL
 */
-int RemoteLogger::send_msg(String my_msg){
+int RemoteLogger::send_msg(String myMsg){
     digitalWrite(IridSlpPin, HIGH);     // wake up the modem
     delay(2000);        // wait for RockBlock to power on
 
@@ -217,11 +217,11 @@ int RemoteLogger::send_msg(String my_msg){
         err = modem.begin();    // try to start up again
     }
 
-    err = modem.sendSBDText(my_msg.c_str());    // try to send the message
+    err = modem.sendSBDText(myMsg.c_str());    // try to send the message
 
     if (err != ISBD_SUCCESS) { // if unsuccessful try again
         err = modem.begin();
-        err = modem.sendSBDText(my_msg.c_str());
+        err = modem.sendSBDText(myMsg.c_str());
     }
 
     // calibrate the RTC time roughly every 5 days
@@ -399,11 +399,20 @@ String RemoteLogger::prep_msg(){
         // Serial.print(F("row ")); Serial.print(row); Serial.print(F("   "));   /** TODO: remove */
 
         while (column < myParams+3) {      // for each column (sampled data point) in the row 
-            floatOut = (float *)cp[column];
-            datastring_msg += String(round(floatOut[row] * myMultipliers[column-3]));
+            // floatOut = (float *)cp[column];
+            // datastring_msg += String(round(floatOut[row] * myMultipliers[column-3]));
 
-            if(column != myParams+2) { datastring_msg += ","; }           // add commas between data points
-            else { datastring_msg += ":"; }     // add a colon only to data from last column
+            // if(column != myParams+2) { datastring_msg += ","; }           // add commas between data points
+            // else { datastring_msg += ":"; }     // add a colon only to data from last column
+
+            // manage selection of which parameters to send with multipliers
+            if(multipliers[column-3] != 0){         // want to send this in the message
+                floatOut = (float *)cp[column];
+                datastring_msg += String(round(floatOut[row] * myMultipliers[column-3]));
+
+                datastring_msg += ",";         // add commas between 
+            }
+            datastring_msg.setCharAt(datastring_msg.length()-1, ":");       // set the last character 
 
             column++;       //go to the next column
         }
@@ -486,6 +495,240 @@ String RemoteLogger::sample_hydros_M(SDI12 bus, int sensor_address){
     return sdiResponse;
 }
 
+/**
+ * sample measurements from OTT PLS
+ * returns water level, water temp, ott status
+ * 
+ * bus: SDI12 object, has been started by the user with attached datapin
+ * sensor_address: address of sensor, factory default 0 (see OTT docs to change)
+ */
+String RemoteLogger::sample_ott_M(SDI12 bus, int sensor_address){
+    myCommand = String(sensor_address) + "M!";      // first command to take a measurement
+
+    bus.sendCommand(myCommand);
+    delay(30);
+
+    while(bus.available()){     // build response string
+        char c = bus.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);      // 1 character = ~7.5 ms
+        }
+    }
+
+    // clear buffer
+    if(sdiResponse.length() > 1){
+        bus.clearBuffer();
+    }
+    delay(2000);        // wait for sensor to take measurement
+    sdiResponse = "";   // clear response string
+
+    // next command to request data
+    myCommand = String(sensor_address) + "D0!";
+
+    bus.sendCommand(myCommand);
+    delay(30);
+
+    while(bus.available()){
+        char c = bus.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);      // 1 character = ~7.5 ms
+        }
+    }
+
+    // subset string
+    sdiResponse = sdiResponse.substring(3);
+
+    // replace + with ,
+    for (int i = 0; i < sdiResponse.length(); i++) {
+        char c = sdiResponse.charAt(i);
+        if (c == '+') {
+            sdiResponse.setCharAt(i, ',');
+        }
+    }
+
+    // clear buffer
+    if(sdiResponse.length() > 1){
+        bus.clearBuffer();
+    }
+
+    if(sdiResponse == ""){      // no data
+        sdiResponse = "-9,-9,-9";
+    }
+
+    return sdiResponse;
+}
+
+/**
+ * sample system test information 
+ * returns relative humidity, dew (?), deg (?) of OTT - see docs
+ * 
+ * bus: SDI12 object, has been started by the user with attached datapin
+ * sensor_address: address of sensor, factory default 0 (see OTT docs to change)
+ */
+String RemoteLogger::sample_ott_V(SDI12 bus, int sensor_address){
+    myCommand = String(sensor_address) + "V!";      // first command to take a measurement
+
+    bus.sendCommand(myCommand);
+    delay(30);
+
+    while(bus.available()){     // build response string
+        char c = bus.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);      // 1 character = ~7.5 ms
+        }
+    }
+
+    // clear buffer
+    if(sdiResponse.length() > 1){
+        bus.clearBuffer();
+    }
+    delay(2000);        // wait for sensor to take measurement
+    sdiResponse = "";   // clear response string
+
+    // next command to request data
+    myCommand = String(sensor_address) + "D0!";
+
+    bus.sendCommand(myCommand);
+    delay(30);
+
+    while(bus.available()){
+        char c = bus.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);      // 1 character = ~7.5 ms
+        }
+    }
+
+    // subset string
+    sdiResponse = sdiResponse.substring(3);
+
+    // replace + with ,
+    for (int i = 0; i < sdiResponse.length(); i++) {
+        char c = sdiResponse.charAt(i);
+        if (c == '+') {
+            sdiResponse.setCharAt(i, ',');
+        }
+    }
+
+    // clear buffer
+    if(sdiResponse.length() > 1){
+        bus.clearBuffer();
+    }
+
+    if(sdiResponse == ""){      // no data
+        sdiResponse = "-9,-9,-9";
+    }
+
+    return sdiResponse;
+}
+
+/**
+ * sample all 6 parameters from OTT PLS
+ * returns water level, water temp, status, RH, dew, deg 
+ * corresponds to default OTT header (see docs)
+ * 
+ * bus: SDI12 object, has been started by the user with attached datapin
+ * sensor_address: address of sensor, factory default 0 (see OTT docs to change)
+ */
+String RemoteLogger::sample_ott(SDI12 bus, int sensor_address){
+    String sample;
+    sample.reserve(30);
+    String sample = sample_ott_M(bus, sensor_address) + "," + sample_ott_V(bus, sensor_address);
+
+    return sample;
+}
+
+/**
+ * sample turbidity from Analite 195 sensor
+ * must be attached to two digital outputs (wiper set/unset) and one analog input (data pin)
+ * the analog input pin does not need to be set to input 
+ * digital pins must be set as output pins
+ * 
+ * wiper frequency is tied to hourly writes to the CSV
+ * will run wiper once every four power cycles (once per hour with 15 min TPL)
+ * 
+ * analogDataPin: analog input for data read from Analite 195
+ * wiperSetPin: digital output pin for wiper set on Analite 195 (see Analite docs for setup)
+ * wiperUnsetPin: digital output pin for wiper unset on Analite 195 (see Analite docs for setup)
+ */
+String RemoteLogger::sample_analite_195(int analogDataPin, int wiperSetPin, int wiperUnsetPin){
+    // set up pins in case the user didn't
+    pinMode(wiperSetPin, OUTPUT);
+    pinMode(wiperUnsetPin, OUTPUT);
+
+    analogReadResolution(12);
+    float values[10];
+
+    // check how many lines in tracker file
+    int samplesSinceHourly = num_samples();
+    if (samplesSinceHourly == 4){     // it's been an hour -- time to wipe
+        digitalWrite(wiperSetPin, HIGH); delay(150); 
+        digitalWrite(wiperSetPin, LOW); delay(50):
+        digitalWrite(wiperUnsetPin, HIGH); delay(50);
+        digitalWrite(wiperUnsetPin, LOW); delay(50); delay(14000);      // wait for wipe cycle - 6 seconds ish
+    } else {    // not wiping, just make sure it's off
+        digitalWrite(wiperUnsetPin, HIGH); delay(20);
+        digitalWrite(wiperUnsetPin, LOW); delay(20);
+    }
+
+    // sample 10 values from sensor
+    for(int i = 0; i < 10; i++){
+        values[i] = (float)analogRead(analogDataPin);       // read from probe
+        delay(5);
+    }
+
+    float medTurbAlog = stats.median(values, 10);       // compute median 12-bit analog value
+
+    // convert from analog value to NTU with provided calibration coefficients
+    /** TODO: this just reads it straight across - need to add the calibration stuff */
+    float ntuAnalog = medTurbAlog;
+    int ntuInt = round(ntuAnalog);      // round to an integer
+
+    analogReadResolution(10);       /** TODO: what is this useful for? */
+
+    return String(ntuInt);
+}
+
+/**
+ * sample range from MaxBotix MB7369 ultrasonic ranger
+ * attach to 2 digital outputs and 1 digital input 
+ * use a PWM pin for input (all pins but A1, A5 on Feather M0 Adalogger, see docs for other boards)
+ * returns minimum of 10 samples
+ * 
+ * powerPin: digital output controlling ranger power, see ranger docs for setup
+ * triggerPin: digital output controlling ranger active time, see ranger docs for setup
+ * pulseInputPin: digital input to collect data, see ranger docs for setup
+ * 
+ * TODO: should this be returned as a string for continuity? or left as long for memory efficiency?
+ */
+long RemoteLogger::sample_ultrasonic(int powerPin, int triggerPin, int pulseInputPin){
+    pinMode(powerPin, OUTPUT);
+    digitalWrite(powerPin, HIGH); delay(500);   // turn on the ranger
+
+    // set up pins
+    pinMode(triggerPin, OUTPUT);
+    pinMode(pulseInputPin, INPUT);
+
+    float values[10];
+    digitalWrite(triggerPin, HIGH);     // start the ranger
+    delay(30);
+
+    for(int i = 0; i < 10; i++){
+        int32_t duration = pulseIn(pulseInputPin, HIGH);    // get pulse duration -- time of flight
+        values[i] = duration;
+        delay(150);     // don't sample too quickly < 7.5Hz
+    }
+    digitalWrite(triggerPin, LOW);      // stop the ranger
+
+    long minDistance = stats.minimum(values, 10);       // get the minimum of the sampled values
+
+    digitalWrite(powerPin, LOW); delay(50);     // turn off the ranger
+    return minDistance;
+}
+
 
 
 
@@ -509,28 +752,6 @@ void RemoteLogger::sync_clock(){
 
 /**
  * helper function
- * count number of comma-separated parameters in header for CSV file
-*/
-// int RemoteLogger::count_params(){
-//     if (myHeader.length() < 1) { return 0; }          // no parameters - empty string
-
-//     int ctr = 1, index, prevIndex;
-//     String delim = ",";
-
-//     index = myHeader.indexOf(delim);
-//     while(index != -1){
-//         ctr++;
-//         prevIndex = index;
-//         index = myHeader.indexOf(delim, prevIndex+1);
-//     }
-
-//     delete &delim;
-
-//     return ctr;
-// }
-
-/**
- * helper function
  * generate string for argument to CSV parser 
  * format e.g. "sffff" for a string column and four float columns
  * 
@@ -543,46 +764,6 @@ String RemoteLogger::produce_csv_setting(){
     }
     return setting;
 }
-
-/**
- * helper function
- * headerIndex array contains the index for metadata about the header title in the library dictionary (set of arrays)
- * e.g. header "water_level_mm" at index 0 in dictionary, stored at index 3 in header 
- * so headerIndex array would contain value 0 at position 3
-*/
-// void RemoteLogger::populate_header_index(int **headerIndex, int num_params){
-//     int index, prevIndex = -1, temp;
-//     String delim = ",", columnName;
-
-//     Serial.println(F("starting header index..."));         /** TODO: remove */
-//     for(int column = 0; column < num_params-1; column++) {
-//         index = myHeader.indexOf(delim, prevIndex+1);       //find first comma
-//         Serial.println(1);      /** TODO: remove */
-//         columnName = myHeader.substring(prevIndex+1, index);        //first column name     
-//         Serial.print(F("searching for ")); Serial.print(columnName);         /** TODO: remove */
-//         *headerIndex[column] = find_key(&columnName);            //find address of this column header in dictionary
-
-//         prevIndex = index;
-//     }
-//     index = myHeader.indexOf(delim, prevIndex+1);
-//     columnName = myHeader.substring(prevIndex+1);     //last column name
-//     *headerIndex[num_params-1] = find_key(&columnName);
-// }
-
-/**
- * helper function
- * find index location of key (column header name) in dictionary headers array
-*/
-// int RemoteLogger::find_key(String *key){
-//     for (int i = 0; i < TOTAL_KEYS; i++){
-//         if (HEADERS[i] == *key){
-//             Serial.print(F("found at ")); Serial.println(i);       /** TODO: remove */
-//             return i;       // return index where key was found
-//         }
-//     }
-//     Serial.println(F("not found"));        /** TODO: remove */
-//     return -1;    //not found
-// }
 
 
 

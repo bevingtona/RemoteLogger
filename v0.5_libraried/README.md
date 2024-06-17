@@ -8,10 +8,23 @@ Author: Rachel Pagdin
 
 ## Library add log: 
 
+### Jun 17, 2024:
+- removed string parsing functionality from the library -- too many memory overflow issues 
+- user needs to supply the RemoteLogger object with the following parameters:
+    - the header for the CSV file
+    - the number of sampled parameters (length of multipliers array and letters string)
+    - the multipliers for each sampled parameter (not including battery voltage and free memory)
+    - the letters for the start of each message to designate the parameters
+- changed use of multipliers to allow selection of which sampled parameters to send 
+    - put a zero corresponding to the parameters you don't want to send but will still sample
+    - (e.g. OTT only sends first 2 of 6 sampled --> multiplier array: {1000, 10, 0, 0, 0, 0})
+- sampling functions in library for OTT, Analite 195, ultrasonic 
+
+
+
 ### Jun 12, 2024:
 - wrote a little instruction document for setting up the MCU (roughly follows the Adafruit setup tutorial with library installation specific to remote loggers) - see setup.md on rp_edits homepage
     - this needs edits to accomodate for Mac users, add photos
-
 
 
 
@@ -32,9 +45,9 @@ Functions of logger to add to library:
     - [ ] run test mode function (test params, write to file, print a bunch of stuff to serial)
 - [ ] sampling functions
     - [x] Hydros
-    - [ ] OTT (easy to do - same SDI-12 as HYDROS, only measurement command changed)
-    - [ ] Analite (analog)
-    - [ ] ultrasonic (digital - needs two pins, no bus)
+    - [x] OTT (easy to do - same SDI-12 as HYDROS, only measurement command changed)
+    - [x] Analite (analog)
+    - [x] ultrasonic (digital - needs 3 pins, no bus)
 - [ ] take measurement upper function - low priority
     - needs:
         - variable length list of sampling functions - callable objects

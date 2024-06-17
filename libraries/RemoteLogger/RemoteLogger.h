@@ -29,7 +29,7 @@ class RemoteLogger
         /* CONSTRUCTORS AND STARTUP */
         RemoteLogger();
         RemoteLogger(String header);
-        RemoteLogger(String header, float *multipliers, byte num_params, String letters);
+        RemoteLogger(String header, byte num_params, float *multipliers, String letters);
         void begin();      // call after changing any pins you want to change
 
         /* BASIC UNIT FUNCTIONS */
@@ -48,12 +48,17 @@ class RemoteLogger
         void reset_hourly();                // wipe hourly file
 
         /* TELEMETRY */
-        int send_msg(String my_msg);    // send message over Iridium
+        int send_msg(String myMsg);    // send message over Iridium
         void irid_test(String msg);               // test Iridium modem (sends message)
         String prep_msg();
 
         /* SAMPLING FUNCTIONS */
         String sample_hydros_M(SDI12 bus, int sensor_address);
+        String sample_ott_M(SDI12 bus, int sensor_address);
+        String sample_ott_V(SDI12 bus, int sensor_address);
+        String sample_ott(SDI12 bus, int sensor_address);     // could make two constituent functions private
+        String sample_analite_195(int analogDataPin, int wiperSetPin, int wiperUnsetPin);
+        long sample_ultrasonic(int powerPin, int triggerPin, int pulseInputPin);
 
         /* PIN ASSIGNMENT SETTERS */
         void setLedPin(byte pin);
@@ -81,6 +86,7 @@ class RemoteLogger
         String myCommand;
         String sdiResponse;
         File dataFile;
+        QuickStats stats;       
 
         IridiumSBD modem{IridiumSerial};
 

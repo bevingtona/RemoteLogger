@@ -15,7 +15,7 @@ const byte num_params = 3;        // number of sampled parameters
 float multipliers[num_params] = {1, 10, 1};         // multipliers for parameters (in order) to remove decimals
 String letters = "ABC";         // letters for start of message, correspond to sampled parameters
 
-RemoteLogger logger(header, multipliers, num_params, letters);        // custom library instance
+RemoteLogger logger(header, num_params, multipliers, letters);        // custom library instance
 
 String take_measurement(){
     String msmt = String(logger.sample_batt_v()) + "," +
