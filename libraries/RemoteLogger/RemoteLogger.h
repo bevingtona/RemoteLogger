@@ -15,12 +15,16 @@
 #include <IridiumSBD.h>         // for working with Iridium RockBlock modem
 #include <RTClib.h>             // for working with RTC
 #include <CSV_Parser.h>         // for reading from CSV
-#include <SDI12.h>             // for SDI-12 sensors
+#include <SDI12.h>              // for SDI-12 sensors
 #include <QuickStats.h>         // statistics - used for ultrasonic
 #include <MemoryFree.h>         // free memory - deprecate eventually?
+#include <Adafruit_SHT31.h>     // for temp/RH SHT31 sensor
+#include <Wire.h>               // for temp/RH SHT31 sensor - I2C
+#include <OneWire.h>            // for DS18B20 - I2C
+#include <DallasTemperature.h>  // for DS18B20
 
 #define IridiumSerial Serial1       // define port for Iridium serial communication
-#define TOTAL_KEYS 6                // number of entries in dictionary
+// #define TOTAL_KEYS 6                // number of entries in dictionary
 //IridiumSBD modem(IridiumSerial);
 
 class RemoteLogger
@@ -59,6 +63,8 @@ class RemoteLogger
         String sample_ott(SDI12 bus, int sensor_address);     // could make two constituent functions private
         String sample_analite_195(int analogDataPin, int wiperSetPin, int wiperUnsetPin);
         long sample_ultrasonic(int powerPin, int triggerPin, int pulseInputPin);
+        String sample_sht31(Adafruit_SHT31 sensor, int sensorAddress);
+        String sample_DS18B20(DallasTemperature sensors, int sensorIndex);
 
         /* PIN ASSIGNMENT SETTERS */
         void setLedPin(byte pin);

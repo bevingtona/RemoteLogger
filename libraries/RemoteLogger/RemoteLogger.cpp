@@ -406,13 +406,13 @@ String RemoteLogger::prep_msg(){
             // else { datastring_msg += ":"; }     // add a colon only to data from last column
 
             // manage selection of which parameters to send with multipliers
-            if(multipliers[column-3] != 0){         // want to send this in the message
+            if(myMultipliers[column-3] != 0){         // want to send this in the message
                 floatOut = (float *)cp[column];
                 datastring_msg += String(round(floatOut[row] * myMultipliers[column-3]));
 
                 datastring_msg += ",";         // add commas between 
             }
-            datastring_msg.setCharAt(datastring_msg.length()-1, ":");       // set the last character 
+            datastring_msg.setCharAt(datastring_msg.length()-1, ':');       // set the last character 
 
             column++;       //go to the next column
         }
@@ -636,7 +636,7 @@ String RemoteLogger::sample_ott_V(SDI12 bus, int sensor_address){
 String RemoteLogger::sample_ott(SDI12 bus, int sensor_address){
     String sample;
     sample.reserve(30);
-    String sample = sample_ott_M(bus, sensor_address) + "," + sample_ott_V(bus, sensor_address);
+    sample = sample_ott_M(bus, sensor_address) + "," + sample_ott_V(bus, sensor_address);
 
     return sample;
 }
@@ -666,7 +666,7 @@ String RemoteLogger::sample_analite_195(int analogDataPin, int wiperSetPin, int 
     int samplesSinceHourly = num_samples();
     if (samplesSinceHourly == 4){     // it's been an hour -- time to wipe
         digitalWrite(wiperSetPin, HIGH); delay(150); 
-        digitalWrite(wiperSetPin, LOW); delay(50):
+        digitalWrite(wiperSetPin, LOW); delay(50);
         digitalWrite(wiperUnsetPin, HIGH); delay(50);
         digitalWrite(wiperUnsetPin, LOW); delay(50); delay(14000);      // wait for wipe cycle - 6 seconds ish
     } else {    // not wiping, just make sure it's off
@@ -727,6 +727,38 @@ long RemoteLogger::sample_ultrasonic(int powerPin, int triggerPin, int pulseInpu
 
     digitalWrite(powerPin, LOW); delay(50);     // turn off the ranger
     return minDistance;
+}
+
+/**
+ * sample temperature and relative humidity from Adafruit SHT31 sensor
+ * hook SHT31 up to I2C
+ * 
+ * sensor: Adafruit_SHT31 object, does not have to be started
+ * sensorAddress: address of the SHT31 sensor, factory options 0x44 or 0x45
+ */
+String RemoteLogger::sample_sht31(Adafruit_SHT31 sensor, int sensorAddress){
+    if (!sensor.begin(sensorAddress)) {
+        return "-9,-9";         // no data - couldn't find the sensor
+    }    
+    sensor.heater(0);
+    float t = sensor.readTemperature();
+    float h = sensor.readHumidity(); 
+    
+    String sample = String(t) + "," + String(h);
+    return sample;
+}
+
+/**
+ * sample temperature from DS18B20
+ * must be set up on a digital pin as a OneWire device 
+ * 
+ * sensors: DallasTemperature array of sensors set up on OneWire device
+ * sensorIndex: position of sensor to sample in the array of sensors (first is 0, check docs)
+ */
+String RemoteLogger::sample_DS18B20(DallasTemperature sensors, int sensorIndex){
+    sensors.requestTemperatures();
+    float temp = sensors.getTempCByIndex(sensorIndex);
+    return String(temp);
 }
 
 

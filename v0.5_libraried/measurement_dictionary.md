@@ -3,11 +3,12 @@
  Measurement | Units | Code | Header Name | Sensors
  ----------- | ----- | ---- | ----------- | -------
  Water Level | mm | A | water_level_mm | Ultrasonic, Hydros21, OTT
- Water Level (is this a typo?) | m | A | water_level_m | OTT 
- Water Temp | ⁰C | B | water_temp_c | OTT, Hydros21
+ Water Temp | ⁰C | B | water_temp_c | OTT, Hydros21, DS18B20
  Electrical Conductivity | dS/m | C | water_ec_dcm | Hydros21
  Turbidity | NTU | D | ntu | Analite195
  Snow Depth | mm | E | snow_depth_mm | Ultrasonic
+ Air Temp @ 2m | ⁰C | F | air_2m_temp_deg_c | SHT31
+ Relative Humidity @ 2m | % | G | air_2m_temp_rh_prct | SHT31
 
  <br>
 

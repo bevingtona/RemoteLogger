@@ -18,7 +18,13 @@ Author: Rachel Pagdin
 - changed use of multipliers to allow selection of which sampled parameters to send 
     - put a zero corresponding to the parameters you don't want to send but will still sample
     - (e.g. OTT only sends first 2 of 6 sampled --> multiplier array: {1000, 10, 0, 0, 0, 0})
-- sampling functions in library for OTT, Analite 195, ultrasonic 
+- sampling functions in library for OTT, Analite 195, ultrasonic, SHT31, DS18B20 
+- examples:
+    - blinky
+    - changing utility pins
+    - test Iridium 
+    - prep message
+    - test for DS18B20 (continuous measurement to serial)
 
 
 

@@ -1,7 +1,9 @@
 /**
- * Sketch to remove all datalogging and tracking files on SD cards (wipe for testing)
+ * remove basic files from SD card: data file, hourly file, and tracking file
+ * Warning: will delete the files - make sure you have saved what you want externally
+ * 
  * Author: Rachel Pagdin
- * June 13, 2024
+ * June 17, 2024
  */
 
 #include <RemoteLogger.h>
