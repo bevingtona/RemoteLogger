@@ -645,7 +645,6 @@ String RemoteLogger::sample_ott(SDI12 bus, int sensor_address){
  * sample turbidity from Analite 195 sensor
  * must be attached to two digital outputs (wiper set/unset) and one analog input (data pin)
  * the analog input pin does not need to be set to input 
- * digital pins must be set as output pins
  * 
  * wiper frequency is tied to hourly writes to the CSV
  * will run wiper once every four power cycles (once per hour with 15 min TPL)

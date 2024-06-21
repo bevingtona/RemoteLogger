@@ -8,6 +8,13 @@ Author: Rachel Pagdin
 
 ## Library add log: 
 
+
+### Jun 19, 2024:
+- added documentation to RemoteLogger library for setting up the Arduino IDE (README)
+- full example code for OTT, Analite, ultrasonic
+
+
+
 ### Jun 17, 2024:
 - removed string parsing functionality from the library -- too many memory overflow issues 
 - user needs to supply the RemoteLogger object with the following parameters:
