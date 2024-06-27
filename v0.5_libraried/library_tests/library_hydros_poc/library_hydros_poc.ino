@@ -81,7 +81,7 @@ void loop(void){
             int iridErr = logger.send_msg(msg);     
 
             if (iridErr == 0) {     // successful send -- reset counters
-                // Serial.println("send successful!");     /** TODO: remove */
+
                 logger.reset_sample_counter();
                 logger.reset_hourly();
             }
