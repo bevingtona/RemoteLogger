@@ -15,7 +15,7 @@ const byte chipSelect = 4;      // Chip select pin for SD card
 const byte led = 8;             // Built in led pin
 const byte vbatPin = 9;         // Batt pin
 const byte dataPin = 12;        // The pin of the SDI-12 data bus
-const byte IridPwrPin = 13;     // Power base PN222 2 transistor pin to Iridium modem
+const byte IridSlpPin = 13;     // Power base PN222 2 transistor pin to Iridium modem
 
 /*Define global vars */
 String my_letter = "AB";
@@ -34,7 +34,7 @@ String sdiResponse = "";  // SDI-12 responce var
 /*Create library instances*/
 RTC_PCF8523 rtc;                  // Setup a PCF8523 Real Time Clock instance (may have to change this to more precise DS3231)
 File dataFile;                    // Setup a log file instance
-IridiumSBD modem(IridiumSerial);  // Declare the IridiumSBD object
+IridiumSBD modem(IridiumSerial, IridSlpPin);  // Declare the IridiumSBD object
 SDI12 mySDI12(dataPin);           // Define the SDI-12 bus
 QuickStats stats;                 // Instance of QuickStats
 
@@ -100,8 +100,9 @@ void setup(void) {
 
   pinMode(dataPin, INPUT); 
 
-  pinMode(IridPwrPin, OUTPUT);
-  digitalWrite(IridPwrPin, LOW); delay(50);
+  pinMode(IridSlpPin, OUTPUT);
+  digitalWrite(IridSlpPin, LOW); delay(50);
+  modem.sleep();
 
   // START SDI-12 PROTOCOL
   Serial.println(" - check sdi12");
@@ -428,7 +429,7 @@ void write_to_csv(String header, String datastring_for_csv, String outname) {
 
 int send_msg(String my_msg) {
 
-  digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
+  // digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
   delay(2000);
   Serial.println(" - Send_msg");
 
@@ -477,86 +478,8 @@ int send_msg(String my_msg) {
       Serial.println(post_time);
   }
   
-  digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
+  // digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
+  modem.sleep();
+
   return err;
-}
-
-void irid_test(String msg) {
-
-  pinMode(IridPwrPin, OUTPUT);     //Set iridium power pin as OUTPUT
-  digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
-  delay(2000);
-
-  int signalQuality = -1;
-
-  IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
-  modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
-
-  // Begin satellite modem operation
-  Serial.println(" - starting modem...");
-  int err = modem.begin();
-
-  if (err != ISBD_SUCCESS) {
-    Serial.print(" - begin failed: error ");
-    Serial.println(err);
-    if (err == ISBD_NO_MODEM_DETECTED)
-      Serial.println(" - no modem detected: check wiring.");
-    return;
-  }
-
-  // Example: Print the firmware revision
-  char version[12];
-  err = modem.getFirmwareVersion(version, sizeof(version));
-  if (err != ISBD_SUCCESS) {
-    Serial.print(" - firmware version failed: error ");
-    Serial.println(err);
-    return;
-  }
-
-  Serial.print(" - firmware version is ");
-  Serial.print(version);
-  Serial.println(".");
-
-  int n = 0;
-  while (n < 10) {
-    err = modem.getSignalQuality(signalQuality);
-    if (err != ISBD_SUCCESS) {
-      Serial.print(" - signalQuality failed: error ");
-      Serial.println(err);
-      return;
-    }
-
-    Serial.print(" - signal quality is currently ");
-    Serial.print(signalQuality);
-    Serial.println(".");
-    n = n + 1;
-    delay(1000);
-  }
-
-  // Send the message
-  Serial.print(" - Attempting: ");
-  msg = "Hello world! " + msg;
-  Serial.println(msg);
-
-  err = modem.sendSBDText(msg.c_str());
-
-  if (err != ISBD_SUCCESS) {
-    Serial.print(" - sendSBDText failed: error ");
-    Serial.println(err);
-    if (err == ISBD_SENDRECEIVE_TIMEOUT)
-      Serial.println(" - try again with a better view of the sky.");
-  } else {
-    Serial.println(" - hey, it worked!");
-  }
-
-  Serial.println("Sync clock to Iridium");
-  struct tm t;
-  int err_time = modem.getSystemTime(t);
-  if (err_time == ISBD_SUCCESS) {
-    String pre_time = rtc.now().timestamp();
-    rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
-    String post_time = rtc.now().timestamp();
-  }
-
-  digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
 }

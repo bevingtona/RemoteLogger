@@ -178,7 +178,7 @@ void loop(void) {
     Serial.println(num_rows_hourly);
 
     // If HOURLY >= 2 rows, then send
-    if(num_rows_hourly >= 6 & num_rows_hourly < 10){
+    if(num_rows_hourly >= 2 & num_rows_hourly < 10){
 
       // PARSE MSG FROM HOURLY.csv
       Serial.print("Irid msg = ");
