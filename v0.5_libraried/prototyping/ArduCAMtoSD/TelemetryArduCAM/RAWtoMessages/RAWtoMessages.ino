@@ -226,7 +226,6 @@ void makeMessages(){
                     position++;
                 }
             }
-            Serial.print(F("this value should be 651 (except last): ")); Serial.println(i);
 
             // compress each pair of bytes into one byte
             for(int j = 0; j < PAYLOAD_LENGTH; j++){
