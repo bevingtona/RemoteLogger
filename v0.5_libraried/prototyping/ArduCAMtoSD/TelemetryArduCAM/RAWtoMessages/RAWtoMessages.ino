@@ -17,7 +17,7 @@
 #define SD_CS 4                     // chip select for SD card
 #define CS 13                       // chip select for camera SPI
 #define HEADER_LENGTH 14            // header length for Irid messages
-#define PAYLOAD_LENGTH 326          // payload length for Irid messages
+#define PAYLOAD_LENGTH 320          // payload length for Irid messages
 
 // sample date -- will eventually take real time from RTC
 const byte year = 24;
@@ -29,12 +29,14 @@ int total_time = 0;
 
 uint8_t resolution = OV5642_640x480;        // resolution, lines, and columns must match
 const uint16_t line = 480, column = 640;
-uint16_t imageSize = line * column;
+uint16_t imageSize = line * column / 2 / 4;
 ArduCAM myCAM(OV5642, CS);
 
 File infile, outfile;
 char binName[13], imageName[13];
 byte header[HEADER_LENGTH];             // buffer for header
+byte unselected[PAYLOAD_LENGTH];        // buffer for unselected 8-bit data  /**TODO: does this cause RAM issues? could read in in batches*/
+byte uncompressed[PAYLOAD_LENGTH * 2];  // buffer for uncompressed 8-bit data (every fourth pixel)
 byte transfer[PAYLOAD_LENGTH];          // buffer for transferring data from RAW to BIN
 byte id = 0;
 
@@ -165,17 +167,21 @@ void captureImage(){
 
 
 void makeMessages(){
-    uint32_t start = 0, extra;
+    uint32_t start = 0, extra, position = 0, i;
     uint8_t seq = 1, totSeq;
+    bool even;
+    byte first, second, comp;
 
     id++;
 
     // determine total number of messages for image
-    if(imageSize % PAYLOAD_LENGTH == 0) { totSeq = imageSize / PAYLOAD_LENGTH;  extra = PAYLOAD_LENGTH; }       // divides evenly
+    if((imageSize % PAYLOAD_LENGTH) == 0) { totSeq = imageSize / PAYLOAD_LENGTH;  extra = PAYLOAD_LENGTH; }       // divides evenly
     else {
         totSeq = (imageSize / PAYLOAD_LENGTH) + 1; 
         extra = imageSize - (PAYLOAD_LENGTH * (totSeq-1));      // length of last message
     }
+    Serial.print(F("compressed image size (B): ")); Serial.println(imageSize);
+    Serial.print(F("total messages in sequence: ")); Serial.println(totSeq);
 
     // build header
     header[1] = totSeq;
@@ -193,10 +199,45 @@ void makeMessages(){
     // open image file
     infile = SD.open(imageName, FILE_READ);
     if(infile){
-        while(start < imageSize){       // haven't reached the end of the image file
-            // read 326 bytes of the image file to the transfer buffer
-            infile.seek(start);     //go to starting position in file
-            infile.read(transfer, PAYLOAD_LENGTH);
+        while(start < (line * column)){       // haven't reached the end of the image file
+            // below here --> compressing 
+            i = 0;      // start at the beginning of the uncompressed buffer
+
+            // read data to be compressed into payload in 8 separate batches to avoid RAM overflow
+            for(int k = 0; k < 8; k++){         // 8 payload lengths --> uncompressed buffer (652 B)
+                infile.seek(start);
+                infile.read(unselected, PAYLOAD_LENGTH);
+
+                start += PAYLOAD_LENGTH;            // go to next start position
+
+                while((position < start) && (position < (line * column))){
+                    if((position % column) == 0){       // at the start of a row
+                        if((position % (column * 2) == 0)){         // at the start of an even row
+                            even = true;
+                        } else {
+                            even = false;
+                            position += (column-1);         // odd line --> skip over it
+                        }
+                    }
+                    if((even == true) && ((position % 2) == 0)) {      // even row even column
+                        uncompressed[i] = unselected[position-(start-PAYLOAD_LENGTH)];
+                        i++;
+                    }
+                    position++;
+                }
+            }
+            Serial.print(F("this value should be 651 (except last): ")); Serial.println(i);
+
+            // compress each pair of bytes into one byte
+            for(int j = 0; j < PAYLOAD_LENGTH; j++){
+                first = uncompressed[2*j] & 0xf0;       // extract first half of first byte
+                second = uncompressed[2*j+1] >> 4;      // extract first half of second byte
+                comp = first | second;                  // OR together to combine into one byte
+
+                transfer[j] = comp;
+            }
+
+            // here --> should have data compressed into payload in transfer buffer 
 
             snprintf(binName, 13, "%02d%03d%03d.bin", id, seq, totSeq);      // generate file name
             header[0] = seq;
@@ -217,7 +258,6 @@ void makeMessages(){
             outfile.close();
 
             seq++;
-            start += PAYLOAD_LENGTH;        //skip ahead in the file to start of next payload
         }
     } else {
         Serial.println(F("issue opening raw file to read"));
