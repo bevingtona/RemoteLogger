@@ -137,7 +137,7 @@ int firmwareVersion(){
  * scale of 0 to 5
  */
 int testSignalQuality(){
-  Serial.println(F("checking signal quality..."));
+    Serial.println(F("checking signal quality..."));
     err = modem.getSignalQuality(signalQuality);
     if(err != ISBD_SUCCESS){
         Serial.print(F("signal quality failed: error ")); Serial.println(err);
