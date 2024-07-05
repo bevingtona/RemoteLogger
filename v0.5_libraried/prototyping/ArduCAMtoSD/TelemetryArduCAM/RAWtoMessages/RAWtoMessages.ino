@@ -53,7 +53,7 @@ void setup(){
     digitalWrite(CS, HIGH);
     SPI.begin();
 
-    startupChecks();        // check busses, reset CPLD
+    cameraStartupChecks();        // check busses, reset CPLD
 
     //Initialize SD Card
     while(!SD.begin(SD_CS)){
@@ -77,7 +77,7 @@ void loop(){
     delay(10000);
 }
 
-void startupChecks(){
+void cameraStartupChecks(){
     //Reset the CPLD (complex programmable logic device)
     myCAM.write_reg(0x07, 0x80);
     delay(100);
