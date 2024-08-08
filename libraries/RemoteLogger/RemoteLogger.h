@@ -94,13 +94,15 @@ class RemoteLogger
         File dataFile;
         QuickStats stats;       
 
-        IridiumSBD modem{IridiumSerial};
+        // IridiumSBD modem{IridiumSerial};
 
         byte ledPin = 8;        // built-in green LED pin on Feather M0 Adalogger - can modify for other boards
         byte vbatPin = 9;          // built-in battery pin on Feather M0 Adalogger - can modify for other boards
         byte tplPin = A0;           // attach TPL to A0 (only analog output pin on Adalogger)
         byte IridSlpPin = 13;           // attach Irid sleep pin (7 - grey) to pin 13 - can modify to other digital pin
         byte chipSelect = 4;          // SD select pin is 4 on Feather M0 Adalogger - can modify for other boards
+
+        IridiumSBD modem{IridiumSerial, IridSlpPin};
 
         const float BATT_MULT = 100;
         const float MEM_MULT = 0.01;

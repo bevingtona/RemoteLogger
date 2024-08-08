@@ -60,7 +60,7 @@ void loop(void){
 
         // determine whether or not to send a message
         int hourlySamples = logger.num_hours();
-        if (hourlySamples >= 4 & hourlySamples < 10) {   // more than 4 hours -- send message
+        if (hourlySamples >= 4 && hourlySamples < 10) {   // more than 4 hours -- send message
             String msg = logger.prep_msg();
             int iridErr = logger.send_msg(msg);     
 

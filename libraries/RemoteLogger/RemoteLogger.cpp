@@ -412,10 +412,10 @@ String RemoteLogger::prep_msg(){
 
                 datastring_msg += ",";         // add commas between 
             }
-            datastring_msg.setCharAt(datastring_msg.length()-1, ':');       // set the last character 
 
             column++;       //go to the next column
         }
+        datastring_msg.setCharAt(datastring_msg.length()-1, ':');       // set the last character 
     }
     // Serial.println();       /** TODO: remove */
 
