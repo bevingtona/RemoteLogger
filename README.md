@@ -1,3 +1,6 @@
+You are in branch rp_edits
+Contains edits by Rachel Pagdin
+
 # Realtime DIY Hydrometric Data Logger with Arduino Feather M0
 
 # Introduction

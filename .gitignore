@@ -2,3 +2,13 @@
 .Rhistory
 .RData
 .Ruserdata
+learning/
+paperwork/
+
+!libraries/
+libraries/*
+!libraries/RemoteLogger
+!libraries/RemoteLogger v0.1
+v0.5_libraried/weather_stations.code-workspace
+
+presentations/
