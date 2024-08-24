@@ -58,7 +58,7 @@ void RemoteLogger::begin(){
  * low_ms: time off for each blink
  * btw_ms: time between each sequence of n blinks
 */
-void RemoteLogger::blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms){
+void RemoteLogger::blinky(int n, int high_ms, int low_ms, int btw_ms){
     for(int i = 1; i <=n; i++){
         digitalWrite(ledPin, HIGH);
         delay(high_ms);
@@ -300,7 +300,7 @@ void RemoteLogger::irid_test(String msg){
     if (err != ISBD_SUCCESS) {
         Serial.print(" - sendSBDText failed: error ");
         Serial.println(err);
-        if (err =- ISBD_SENDRECEIVE_TIMEOUT) {
+        if (err == ISBD_SENDRECEIVE_TIMEOUT) {
             Serial.println(" - try again with a better view of the sky.");
         }
     } else {
@@ -318,6 +318,9 @@ void RemoteLogger::irid_test(String msg){
  * actual data values are multiplied by varying powers of 10 to remove decimals
  * see documentation for letter-to-header mappings and multipliers
  * 
+ * if there are more lines in hourly data file than allowable in a single message, will send only
+ * the most recent from bottom of file (e.g. if max in message is 8 and 10 data samples, will send samples 3-10)
+ * 
  * e.g. 
  * Data file: 
  * datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm
@@ -327,6 +330,8 @@ void RemoteLogger::irid_test(String msg){
  * ABC:01011001:431,246,10,187,3:
 */
 String RemoteLogger::prep_msg(){
+    int maxInMsg = 18;
+
     // process header to determine number of columns (parameters)
     // Serial.println(F("preparing csv setting..."));         /** TODO: remove */
     String csv_setting = produce_csv_setting();
@@ -341,7 +346,11 @@ String RemoteLogger::prep_msg(){
     // Serial.println(freeMemory());       /** TODO: remove */
     CSV_Parser cp(buf, true, ',');      
     cp.readSDfile("/HOURLY.csv");       
-    int num_rows = cp.getRowsCount();  
+    int num_rows = cp.getRowsCount(); 
+
+    int first;          // where to start adding data to message (limit message size)
+    if (num_rows > maxInMsg) first = num_rows - maxInMsg; 
+    else first = 0;
 
     // Serial.println(6);      /** TODO: remove */
 
@@ -367,10 +376,10 @@ String RemoteLogger::prep_msg(){
     // Serial.println(F("date and time..."));     /** TODO: remove */
     //datetime (of first measurement in message)
     char **out_datetimes = (char **)cp[column];       // get list of datetimes 
-    datastring_msg += String(out_datetimes[0]).substring(2,4); 
-    datastring_msg += String(out_datetimes[0]).substring(5,7);
-    datastring_msg += String(out_datetimes[0]).substring(8,10);
-    datastring_msg += String(out_datetimes[0]).substring(11,13);
+    datastring_msg += String(out_datetimes[first]).substring(2,4); 
+    datastring_msg += String(out_datetimes[first]).substring(5,7);
+    datastring_msg += String(out_datetimes[first]).substring(8,10);
+    datastring_msg += String(out_datetimes[first]).substring(11,13);
     datastring_msg += ":";
 
     delete out_datetimes;       // free up memory
@@ -394,7 +403,7 @@ String RemoteLogger::prep_msg(){
 
     // Serial.print(F("adding data... "));           /** TODO: remove */
     //sampled data
-    for (int row = 0; row < num_rows; row++) {        // for each row in the data file
+    for (int row = first; row < num_rows; row++) {        // for each row in the data file
         column = 3;    //start each time at the start of the sampled data (fourth column)
         // Serial.print(F("row ")); Serial.print(row); Serial.print(F("   "));   /** TODO: remove */
 
@@ -423,6 +432,75 @@ String RemoteLogger::prep_msg(){
     delete floatOut;
     // delete headerIndex;
     
+    return datastring_msg;
+}
+
+/**
+ * prepare message in same format as usual but with only the most recent sample written to hourly data file
+ * intended for use during low power mode as absolute minimum amount of data transfer
+ */
+String RemoteLogger::low_pwr_prep_msg(){
+    String csv_setting = produce_csv_setting();
+
+    SD.begin(chipSelect);       //start the SD card connection
+
+    char buf[csv_setting.length()+1];   // Serial.println(1);  /** TODO: remove */
+    csv_setting.toCharArray(buf, csv_setting.length()+1); 
+    CSV_Parser cp(buf, true, ',');      
+    cp.readSDfile("/HOURLY.csv");       
+    int num_rows = cp.getRowsCount(); 
+
+    String datastring_msg = "";
+    datastring_msg.reserve(40);
+
+    datastring_msg += myLetters;
+    datastring_msg += ":";
+
+    int column = 0;        // position of the header we're on
+
+    // date and time
+    char **out_datetimes = (char **)cp[column];       // get list of datetimes 
+    datastring_msg += String(out_datetimes[num_rows-1]).substring(2,4); 
+    datastring_msg += String(out_datetimes[num_rows-1]).substring(5,7);
+    datastring_msg += String(out_datetimes[num_rows-1]).substring(8,10);
+    datastring_msg += String(out_datetimes[num_rows-1]).substring(11,13);
+    datastring_msg += ":";
+
+    delete out_datetimes;       // free up memory
+
+    column++;
+
+    float *floatOut;        //temporary variable for float columns to live in
+
+    // battery voltage (most recent)
+    floatOut = (float *)cp[column];
+    datastring_msg += String(round(floatOut[num_rows-1] * BATT_MULT));
+    datastring_msg += ":";
+
+    column++;
+
+    //free memory (most recent)
+    floatOut = (float *)cp[column];
+    datastring_msg += String(round(floatOut[num_rows-1] * MEM_MULT)); 
+    datastring_msg += ":";
+
+    column = 3;
+    while(column < myParams+3){
+        // manage selection of which parameters to send with multipliers
+        if(myMultipliers[column-3] != 0){         // want to send this in the message
+            floatOut = (float *)cp[column];
+            datastring_msg += String(round(floatOut[num_rows-1] * myMultipliers[column-3]));
+
+            datastring_msg += ",";         // add commas between 
+        }
+
+        column++;       //go to the next column
+    }
+    datastring_msg.setCharAt(datastring_msg.length()-1, ':');       // set the last character 
+
+    // free up memory
+    delete floatOut;
+
     return datastring_msg;
 }
 

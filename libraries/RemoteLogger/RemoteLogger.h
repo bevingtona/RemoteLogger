@@ -37,7 +37,7 @@ class RemoteLogger
         void begin();      // call after changing any pins you want to change
 
         /* BASIC UNIT FUNCTIONS */
-        void blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms);
+        void blinky(int n, int high_ms, int low_ms, int btw_ms);
         void write_to_csv(String header, String datastring_for_csv, String outname);
         float sample_batt_v();
         int sample_memory();
@@ -55,11 +55,12 @@ class RemoteLogger
         int send_msg(String myMsg);    // send message over Iridium
         void irid_test(String msg);               // test Iridium modem (sends message)
         String prep_msg();
+        String low_pwr_prep_msg();              // prep message with just the most recent hourly sample
 
         /* SAMPLING FUNCTIONS */
         String sample_hydros_M(SDI12 bus, int sensor_address);
-        String sample_ott_M(SDI12 bus, int sensor_address);
-        String sample_ott_V(SDI12 bus, int sensor_address);
+        // String sample_ott_M(SDI12 bus, int sensor_address);
+        // String sample_ott_V(SDI12 bus, int sensor_address);
         String sample_ott(SDI12 bus, int sensor_address);     // could make two constituent functions private
         String sample_analite_195(int analogDataPin, int wiperSetPin, int wiperUnsetPin);
         long sample_ultrasonic(int powerPin, int triggerPin, int pulseInputPin);
@@ -83,6 +84,8 @@ class RemoteLogger
         String produce_csv_setting();          // generate argument for CSV parsing - helper to prep_msg
         void populate_header_index(int **headerIndex, int num_params);             // determine where each header lives in dictionary - helper to prep_msg
         int find_key(String *key);                   // find index of column name in dictionary
+        String sample_ott_M(SDI12 bus, int sensor_address);
+        String sample_ott_V(SDI12 bus, int sensor_address);
 
         String myHeader;
         float *myMultipliers;
