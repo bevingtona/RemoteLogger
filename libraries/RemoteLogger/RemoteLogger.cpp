@@ -781,7 +781,7 @@ String RemoteLogger::sample_analite_195(int analogDataPin, int wiperSetPin, int 
  * 
  * TODO: should this be returned as a string for continuity? or left as long for memory efficiency?
  */
-long RemoteLogger::sample_ultrasonic(int powerPin, int triggerPin, int pulseInputPin){
+String RemoteLogger::sample_ultrasonic(int powerPin, int triggerPin, int pulseInputPin){
     pinMode(powerPin, OUTPUT);
     digitalWrite(powerPin, HIGH); delay(500);   // turn on the ranger
 
@@ -803,7 +803,7 @@ long RemoteLogger::sample_ultrasonic(int powerPin, int triggerPin, int pulseInpu
     long minDistance = stats.minimum(values, 10);       // get the minimum of the sampled values
 
     digitalWrite(powerPin, LOW); delay(50);     // turn off the ranger
-    return minDistance;
+    return String(minDistance);
 }
 
 /**

@@ -63,7 +63,7 @@ class RemoteLogger
         // String sample_ott_V(SDI12 bus, int sensor_address);
         String sample_ott(SDI12 bus, int sensor_address);     // could make two constituent functions private
         String sample_analite_195(int analogDataPin, int wiperSetPin, int wiperUnsetPin);
-        long sample_ultrasonic(int powerPin, int triggerPin, int pulseInputPin);
+        String sample_ultrasonic(int powerPin, int triggerPin, int pulseInputPin);
         String sample_sht31(Adafruit_SHT31 sensor, int sensorAddress);
         String sample_DS18B20(DallasTemperature sensors, int sensorIndex);
 
@@ -82,8 +82,8 @@ class RemoteLogger
         void sync_clock();      // sync RTC to Iridium time - helper to send_msg and test_irid
         //int count_params();            // count parameters in comma-separated header - helper to prep_msg
         String produce_csv_setting();          // generate argument for CSV parsing - helper to prep_msg
-        void populate_header_index(int **headerIndex, int num_params);             // determine where each header lives in dictionary - helper to prep_msg
-        int find_key(String *key);                   // find index of column name in dictionary
+        // void populate_header_index(int **headerIndex, int num_params);             // determine where each header lives in dictionary - helper to prep_msg
+        // int find_key(String *key);                   // find index of column name in dictionary
         String sample_ott_M(SDI12 bus, int sensor_address);
         String sample_ott_V(SDI12 bus, int sensor_address);
 

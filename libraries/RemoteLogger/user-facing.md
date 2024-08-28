@@ -1,27 +1,41 @@
 # RemoteLogger - Low-Cost Remote Dataloggers
 
+<img src='https://github.com/bevingtona/RemoteLogger/assets/9651129/34783a47-727d-43ba-a6db-63897659f26c' width='250'>
+
 ## Table of Contents
 [**Introduction**](#introduction)<br>
 &ensp;&ensp;[Features](#features)<br>
-&ensp;&ensp;[Licensing](#licensing)<br>
+&ensp;&ensp;[*Licensing](#licensing)<br>
 [**Getting started**](#getting-started)<br>
 &ensp;&ensp;[Setting up the Arduino IDE](#setting-up-the-arduino-ide)<br>
-&ensp;&ensp;[Installing the RemoteLogger library](#installing-the-remotelogger-library)<br>
+&ensp;&ensp;[*Installing the RemoteLogger library](#installing-the-remotelogger-library)<br>
 &ensp;&ensp;[Installing library dependencies](#installing-library-dependencies)<br>
 &ensp;&ensp;[Upload code to your Feather M0](#upload-code-to-your-feather-m0)<br>
-&ensp;&ensp;[Troubleshooting](#troubleshooting)<br>
+&ensp;&ensp;[*Troubleshooting](#troubleshooting)<br>
 [**Building a datalogger**](#building-a-datalogger)<br>
 &ensp;&ensp;[Supported sensors](#supported-sensors)<br>
+&ensp;&ensp;[*Wiring diagrams and materials lists](#wiring-diagrams-and-materials-lists)<br>
+&ensp;&ensp;[*Build instructions](#build-instructions)<br>
+&ensp;&ensp;[*Recommended bench tests](#recommended-bench-tests)<br>
+&ensp;&ensp;[*Field deployment and testing](#field-deployment-and-testing)<br>
+&ensp;&ensp;[*Accessing data from MoF database](#accessing-data-from-mof-database)<br>
+&ensp;&ensp;[*Maintenance and troubleshooting](#maintenance-and-troubleshooting)<br>
 [**Library functions**](#library-functions)<br>
 &ensp;&ensp;[Constructors and startup](#constructors-and-startup)<br>
 &ensp;&ensp;[Basic functionality](#basic-functionality)<br>
 &ensp;&ensp;[Sample tracking](#sample-tracking)<br>
 &ensp;&ensp;[Telemetry](#telemetry)<br>
-&ensp;&ensp;[Sampling](#sampling)<br>
-&ensp;&ensp;[Pin assignment](#pin-assignment)<br>
+&ensp;&ensp;[*Sampling](#sampling)<br>
+&ensp;&ensp;[*Pin assignment](#pin-assignment)<br>
 [**Designing your own datalogger networks**](#designing-your-own-datalogger-networks)<br>
-[**Acknowledgements and Credits**](#acknowledgements-and-credits)<br>
+&ensp;&ensp;[*Writing your own sketches for supported sensors](#writing-sketches-for-combinations-of-supported-sensors)<br>
+&ensp;&ensp;[*Writing your own sketches for unsupported sensors](#writing-sketches-with-sensors-not-supported-by-the-library)<br>
+&ensp;&ensp;[*Setting up Iridium RockBlock system](#setting-up-iridium-rockblock-system)<br>
+&ensp;&ensp;[*Overriding library functions](#overriding-library-functions)<br>
+&ensp;&ensp;[*Setting up a database](#setting-up-a-database)<br>
+[**\*Acknowledgements and Credits**](#acknowledgements-and-credits)<br>
 
+----
 
 ## Introduction
 This project that allows you to measure and log hydrometric data in real-time using an Arduino Feather M0 microcontroller. This project is perfect for environmental monitoring applications, such as river water level measurements, flood monitoring, and water quality assessment.
@@ -38,6 +52,7 @@ With this hydrometric data logger, you can collect water level data and transmit
 
 ### Licensing 
 
+[back to top](#table-of-contents)
 
 ----
 
@@ -93,6 +108,8 @@ Make sure both ends of the USB connection are secure. If the Feather is in the F
 #### **The Feather is connected and the code compiles, but when I try to upload it does not show any output and eventually fails.**
 Occasionally the Feather needs to be put into "bootloader" mode to accept uploaded code. Hit the upload button and wait for the code to compile. Once it says "Uploading..." on the screen, double-press the Reset button on the Feather. The red LED next to the micro-USB port should start pulsing rapidly and the upload should start. 
 
+[back to top](#table-of-contents)
+
 ----
 
 ## Building a datalogger
@@ -108,6 +125,15 @@ Occasionally the Feather needs to be put into "bootloader" mode to accept upload
 | Adafruit SHT31 | air temp; relative humidity | $19 | sample_sht31 |
 
 Examples are provided for the first four of these sensors along with the library. Once the library is installed, example code is available through File > Examples > RemoteLogger. The loggers can also be easily built to incorporate two or more sensors. For instructions on designing your own sensor combinations or extending to unsupported sensors, see [this section](#designing-your-own-datalogger-networks).
+
+### Wiring diagrams and materials lists
+### Build instructions
+### Recommended bench tests
+### Field deployment and testing
+### Accessing data from MoF database
+### Maintenance and troubleshooting
+
+[back to top](#table-of-contents)
 
 ----
 
@@ -225,12 +251,81 @@ String take_measurement(){
 ```
 #### `String sample_hydros_M(SDI12 bus, int sensor_address)`
 Sample from the Hydros 21 sensor. Must be provided an SDI12 bus object from the Arduino SDI12 library. It also needs the sensor address; this is generally assumed to be 0. Returns three parameters - water level (mm), water temperature (degrees C), and electrical conductivity - separated by commas without spaces in a single string.
+```c++
+SDI12 sdi12(12);        // create SDI-12 object with data pin 12 (can be any digital pin)
+sdi12.begin();
+...
+String sample = logger.sample_hydros_M(sdi12, 0);       // pass SDI-12 object and sensor address to sample
+```
 #### `String sample_ott(SDI12 bus, int sensor_address)`
 Sample from the OTT PLS 500 sensor. Must be provided an SDI12 bus object from the Arduino SDI12 library. It also needs the sensor address; this is generally assumed to be 0. Returns six parameters - water level (mm), water temperature (degrees C), sensor status, sensor internal relative humidity, sensor dew, and sensor deg - separated by commas without spaces in a single string.
+```c++
+SDI12 sdi12(12);        // create SDI-12 object with data pin 12 (can be any digital pin)
+sdi12.begin();
+...
+String sample = logger.sample_ott(sdi12, 0);        // pass SDI-12 object and sensor address to sample
+```
 #### `String sample_analite_195(int analogDataPin, int wiperSetPin, int wiperUnsetPin)`
+Sample from Analite 195 turbidity sensor. Provide 3 pins: 
+- `analogDataPin`: data pin for ranger, must be analog input
+- `wiperSetPin`: ON pin for built-in wiper, any digital pin
+- `wiperUnsetPin`: OFF pin for built-in wiper, any digital pin
+
+This function manages pin assignment to output - no need to designate before passing to the function.
+#### `String sample_ultrasonic(int powerPin, int triggerPin, int pulseInputPin)`
+Sample from MaxBotix MB7369 ultrasonic ranger. Provide 3 pins:
+- `powerPin`: ON/OFF pin for ranger, any digital pin
+- `triggerPin`: trigger pin to start measurement, any digital pin
+- `pulseInputPin`: input pin to read pulse from ranger; must be PWM compatible (all pins except A1, A5 on Feather M0 Adalogger)
+
+This function manages pin assignment to output - no need to designate before passing to the function.
+#### `String sample_sht31(Adafruit_SHT31 sensor, int sensorAddress)`
+Sample from Adafruit SHT31 temperature/relative humidity sensor. Provide an Adafruit_SHT31 sensor object. Set sensorAddress as 0x44 for default.<br>
+This function will set up the sensor - no need to begin the SHT31 object.
+```c++
+Adafruit_SHT31 sht31 = Adafruit_SHT31();   // create the SHT31 object
+...
+String sample = logger.sample_sht31(sht31, 0x44);       // pass SHT31 and address to sampling function
+```
+#### `String sample_DS18B20(DallasTemperature sensors, int sensorIndex)`
+Sample from Adafruit DS18B20 waterproof temperature sensor. Provide DallasTemperature object to contain sensor and sensor index, generally assumed to be 0. Multiple sensors can be daisy-chained to the same DallasTemperature object and accessed by index -- for more information, see DallasTemperature library documentation. <br>
+Create a DallasTemperature object with a OneWire object created with the digital pin attached to data wire on DS18B20. 
+```c++
+OneWire oneWire(12);        // OneWire object created on digital pin 12
+DallasTemperature sensors(&oneWire);
+sensors.begin();        // start up the DallasTemperature object
+...
+String sample = logger.sample_DS18B20(sensors, 0);      // pass DallasTemperature object and index to sample
+```
 
 ### Pin assignment
+Pins are set to defaults for Adafruit Feather M0 Adalogger. If any pins need to be changed from the defaults, change them before calling `logger.begin()`.
+| Peripheral | Default Pin | Assignment Function | Notes |
+| --- | --- | --- | --- |
+| Built-in LED | 8 | `setLedPin` | Default is built-in LED pin for Adalogger |
+| Battery voltage | 9 | `setBattPin` | Default is battery pin for Adalogger |
+| TPL done | A0 | `setTplPin` | Must be an analog output pin (A0 is only analog output on Adalogger) |
+| Iridium modem sleep pin | 13 | `setIridSlpPin` | Match to wiring |
+| SD card select pin | 4 | `setSDSelectPin` | Default is SD select on Adalogger | 
+```c++
+void setup(){
+    // change any pins here
 
+    logger.begin();
+}
+```
+#### `void setLedPin(byte pin)`
+Change LED pin. Provide digital pin attached to LED.
+#### `void setBattPin(byte pin)`
+Change pin to read battery voltage. Likely only change this if using an MCU with a different battery read pin than the Adalogger.
+#### `void setTplPin(byte pin)`
+Change pin to alert TPL timer chip to shut off power. Needs an analog pin capable of output (only A0 on Adalogger).
+#### `void setIridSlpPin(byte pin)`
+Change pin for Iridium modem sleep pin (pin 7 from RockBlock 9603 modem). Provide digital pin attached to sleep pin on RockBlock modem. 
+#### `void setSDSelectPin(byte pin)`
+Change pin to select SD card reader. Change this if using an MCU with a different SD chip select pin than Adalogger or using an external SD slot breakout. If using an external SD breakout, provide digital pin attached to CS pin.
+
+[back to top](#table-of-contents)
 
 ----
 
@@ -239,7 +334,14 @@ Sample from the OTT PLS 500 sensor. Must be provided an SDI12 bus object from th
 For the list of supported sensors, click [here](#supported-sensors).
 ### Writing sketches with sensors not supported by the library 
 For the list of supported sensors, click [here](#supported-sensors).
+### Setting up Iridium RockBlock system
+### Overriding library functions
+### Setting up a database
+
+[back to top](#table-of-contents)
 
 ----
 
 ## Acknowledgements and Credits
+
+[back to top](#table-of-contents)
