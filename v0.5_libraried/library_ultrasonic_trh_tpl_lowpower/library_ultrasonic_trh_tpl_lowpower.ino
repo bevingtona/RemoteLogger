@@ -32,8 +32,8 @@ RemoteLogger logger(header, num_params, multipliers, letters);
 
 String take_measurement(){
     String msmt = String(logger.sample_batt_v()) + "," +
-        logger.sample_memory() + "," +
-        String(logger.sample_ultrasonic(ultrasonicPowerPin, triggerPin, pulseInputPin)) + "," + 
+        String(logger.sample_memory()) + "," +
+        logger.sample_ultrasonic(ultrasonicPowerPin, triggerPin, pulseInputPin) + "," + 
         logger.sample_sht31(temp_rh, tempRHAddress);
 
     return msmt;
