@@ -16,8 +16,8 @@ This is *not* intended to serve as documentation for users of the library. For u
 &ensp;&ensp;[*Licensing](#licensing)<br>
 [**Library scope**](#library-scope)<br>
 [**Limitations**](#limitations)<br>
-&ensp;&ensp;[*Limitations from hardware/external systems](#limitations-from-hardwareexternal-systems)<br>
-&ensp;&ensp;[*Limitations from software design](#limitations-from-software-design)<br>
+&ensp;&ensp;[Limitations from hardware/external systems](#limitations-from-hardwareexternal-systems)<br>
+&ensp;&ensp;[Limitations from software design](#limitations-from-software-design)<br>
 [**Interface with MoF database**](#interface-with-mof-database)<br>
 [**Library add log**](#library-add-log)<br>
 [**\*Acknowledgements and Credits**](#acknowledgements-and-credits)<br>
