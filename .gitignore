@@ -12,3 +12,6 @@ libraries/*
 v0.5_libraried/weather_stations.code-workspace
 
 presentations/
+v0.5_libraried/prototyping/CatchingWebhooks
+.vscode/
+documentation/
