@@ -18,9 +18,8 @@ This is *not* intended to serve as documentation for users of the library. For u
 [**Limitations**](#limitations)<br>
 &ensp;&ensp;[*Limitations from hardware/external systems](#limitations-from-hardwareexternal-systems)<br>
 &ensp;&ensp;[*Limitations from software design](#limitations-from-software-design)<br>
-[**\*Internal dependencies**](#internal-dependencies)<br>
-[**\*Interface with MoF database**](#interface-with-mof-database)<br>
-[**\*Library add log**](#library-add-log)<br>
+[**Interface with MoF database**](#interface-with-mof-database)<br>
+[**Library add log**](#library-add-log)<br>
 [**\*Acknowledgements and Credits**](#acknowledgements-and-credits)<br>
 
 ----
@@ -49,8 +48,25 @@ With this hydrometric data logger, you can collect water level data and transmit
 ## Library scope
 
 #### Included in library
+- management of RTC (real time clock) peripheral
+- interface with built-in LED
+- sample tracking designed for use with TPL Nano Timer chip (tracked on nonvolatile memory)
+- sampling functions for a variety of hydrometric and meteorologic sensors (see user docs for full list)
+- data logging to CSV files on SD card 
+- message preparation from sampled data to send in format accepted by MoF database
+- sending text-based messages with single retry and report for failed send
 #### Not included in library
-#### Rationale
+Communication protocol objects (e.g. SDI-12), pin assignment, and sensor addresses are left to the user to pass into sampling functions for those sensors.<br>
+**Rationale:** Though it adds a little complexity for the user, ultimately it makes the library much more flexible for use with various wiring setups and sensors. This is well-documented for the user in the sampling functions section of the user documentation.<br>
+
+The user must provide parameters (header, letters, multipliers, number of parameters) that seem redundant to allow the data logging and message preparation to work properly.<br>
+**Rationale:** This allows the message preparation especially to manage completely automatically, even allowing the user to send only a subset of the sampled parameters. Trying to automate the production of these parameters caused memory issues on the Feather (RAM issues with too many String objects).<br>
+
+The user writes the logic of the operation of the logger. The basic functions are available but it is up to them to provide the timing framework.
+**Rationale:** This allows the library to be used in more than just one way, and for the sampling interval to be as flexible as possible. In fact it is not even tied to a 15-minute TPL interval, the Iridium modem, or the sensors supported by the library - these could be changed and the library would still be relevant.<br>
+
+Message preparation only prepares the most recent 18 samples to send instead of preparing multiple messages.
+**Rationale:** This was left out due to a lack of time for testing. It is theoretically completely possible to produce multiple messages, either in a loop or to pass them to the sending function as a single String and separate them there. However, there will be a limit on how many messages the logger can attempt to send during a single power cycle as the RockBlock modem can only send one message roughly every 40 seconds.<br>
 
 [back to top](#table-of-contents)
 
@@ -59,20 +75,26 @@ With this hydrometric data logger, you can collect water level data and transmit
 ## Limitations
 
 ### Limitations from hardware/external systems
+- RockBlock 9603 can only send one message roughly every 40 seconds and they are maximum 340 characters long
 
 ### Limitations from software design
-
-[back to top](#table-of-contents)
-
-----
-
-## Internal dependencies
+- to add any new sensors or sampled parameters, the database must be updated to decode them (letters, multipliers, etc)
+- message structure limits the number of different parameters by the number of single unique characters you can use to represent them at the head of the message 
+- using the Arduino String object simplifies the code but the object is known to have significant issues with heap fragmentation, which can crash the program if there is too much String manipulation 
+    - avoid concatenation as much as possible
+    - can use `String.reserve()` to set space if you're going to have to edit a string a lot
+    - use `F()` inside print statements to let the compiler know not to keep the string literal inside 
+- to use any of the functionality of the library, the user needs to install the libraries for every sensor, even ones they will never use, for the RemoteLogger library to work
 
 [back to top](#table-of-contents)
 
 ----
 
 ## Interface with MoF database
+To be accepted and decoded successfully at the MoF database entryway, the messages must follow a particular structure. Messages are prepared automatically according to this structure in the `prep_msg` function in the library.
+> \<letters\>:\<datetime\>:\<battery\>:\<memory\>:\<sample\>:\<sample\>:\<sample\>:...
+
+Letters correspond to the sampled parameters defined in the table in the "Designing your own datalogger networks" of the user documentation. 
 
 [back to top](#table-of-contents)
 
