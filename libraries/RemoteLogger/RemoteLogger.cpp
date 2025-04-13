@@ -1,228 +1,624 @@
-/*
-Version 0.1 of RemoteLogger library for modular remote data loggers (originally for hydrometric sensors)
-Author: Rachel Pagdin
-January 25, 2024
+/**
+ * v0.2 of RemoteLogger library for modular remote data loggers
+ * requires input for parameters from user: multipliers, letters, number of parameters, and header
+ * Author: Rachel Pagdin
+ * June 17, 2024
 */
 
-#include "Arduino.h"
-#include "RemoteLogger.h"
+#include <Arduino.h>
+#include <RemoteLogger.h>
 
-// no-argument constructor (for testing purposes)
+/* CONSTRUCTORS AND STARTUP */
+
 RemoteLogger::RemoteLogger(){
-    // global to control amount of memory used for reassigning these all the time
-    myCommand = "";
-    sdiResponse = "";
-
-    // constants 
-    blink_freq_s = 10;
-    watchdog_timer = 30000;
-
-    // global 
-    analite_wiper_cnt = 0; 
+    /** TODO: remove, this is default header for Hydros21 */
+    myHeader = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm";
 }
 
-//constructor
-RemoteLogger::RemoteLogger(String letters, String header){
+RemoteLogger::RemoteLogger(String header){
+    myHeader = header;
+}
 
-    // set message preamble (letters/header)
-    my_letter = letters;
-    my_header = header;
-    
-    // global to control amount of memory used for reassigning these all the time
-    myCommand = "";
-    sdiResponse = "";
-
-    // constants 
-    blink_freq_s = 10;
-    watchdog_timer = 30000;
-
-    // global 
-    analite_wiper_cnt = 0; 
+RemoteLogger::RemoteLogger(String header, byte num_params, float *multipliers, String letters){
+    myHeader = header;
+    myMultipliers = multipliers;
+    myParams = num_params;
+    myLetters = letters;
 }
 
 /**
- * Standard startup
- * start SDI-12
- * check RTC and SD card
+ * sets up pins and starts up external hardware (RTC, SD)
+ * user is responsible for setting up any sensors (SDI-12, etc) to pass to sample functions
 */
-void RemoteLogger::start_checks(){
-    // START SDI-12 PROTOCOL
-    start_data_bus();
+void RemoteLogger::begin(){
+    // set up main logger pins
+    pinMode(ledPin, OUTPUT);
+    pinMode(vbatPin, INPUT);
+    pinMode(tplPin, OUTPUT);
+    pinMode(IridSlpPin, OUTPUT);
 
-    // CHECK RTC
-    check_clock();
+    // start RTC
+    rtc.begin();
 
-    // CHECK SD CARD
-    check_card();
+    // start SD card
+    SD.begin(chipSelect);
+
+    /* would read any parameters here */
 }
+
+
+
+
+/* BASIC UNIT FUNCTIONS */
 
 /**
- * Individual start/check functions 
- * if calling all three can use start_checks()
+ * blink preset LED with number of blinks, timing, and pause between sequences set
+ * n: number of blinks
+ * high_ms: time on for each blink
+ * low_ms: time off for each blink
+ * btw_ms: time between each sequence of n blinks
 */
-void RemoteLogger::start_data_bus(){
-    Serial.println(" - check sdi12");
-    mySDI12.begin();
-}
-void RemoteLogger::check_card(){
-    Serial.println(" - check card");
-    while (!SD.begin(SD_CHIP_SELECT_PIN)) { blinky(2, 200, 200, 2000); }
-}
-void RemoteLogger::check_clock(){
-    Serial.println(" - check clock");
-    while (!rtc.begin()) { blinky(1, 200, 200, 2000); }
-}
-
-
-void RemoteLogger::read_params(){
-    //burner variables (delete at end)
-    int16_t *sample_freq_m;
-    int16_t *irid_freq_h;
-    char **test_mode;
-    int16_t *onstart_samples;
-
-    CSV_Parser cp("ddsd", true, ',');
-    Serial.println(" - check param.txt");
-    while(!cp.readSDfile("/PARAM.txt")) { blinky(3, 200, 200, 1000); } //blink while reading the file from SD
-    cp.parseLeftover();
-
-    /* Assign to class member variables (public) */
-    sample_freq_m = (int16_t *) cp["sample_freq_m"];
-    sample_freq_m_16 = sample_freq_m[0];
-    irid_freq_h = (int16_t *)cp["irid_freq_h"];
-    irid_freq_h_16 = irid_freq_h[0];
-    test_mode = (char **)cp["test_mode"];
-    test_mode_string = String(test_mode[0]);
-    onstart_samples = (int16_t *)cp["onstart_samples"];
-    onstart_samples_16 = onstart_samples[0];
-
-    /* Get rid of all the stuff we don't need (save space) */
-    delete sample_freq_m;
-    delete irid_freq_h;
-    delete test_mode;
-    delete onstart_samples;
-}
-
-void RemoteLogger::blinky(int16_t n, int16_t high_ms, int16_t low_ms, int16_t btw_ms){
-    for(int i = 1; i <= n; i++){
-        digitalWrite(LED_PIN, HIGH);
+void RemoteLogger::blinky(int n, int high_ms, int low_ms, int btw_ms){
+    for(int i = 1; i <=n; i++){
+        digitalWrite(ledPin, HIGH);
         delay(high_ms);
-        digitalWrite(LED_PIN, LOW);
+        digitalWrite(ledPin, LOW);
         delay(low_ms);
     }
     delay(btw_ms);
 }
 
+/**
+ * write specified header and data to CSV file
+ * does not manage matching the lengths for you -- you are responsible for making sure your datastring is the right length
+ * do NOT add newline characters to the end of datastrings, this will add empty lines in CSV file
+ * only writes header if the file is newly created (i.e. has no header yet)
+ * 
+ * header: column headers for CSV file
+ * datastring_for_csv: the line of data to write to the CSV file
+ * outname: name of the CSV file (e.g. /HOURLY.csv)
+*/
 void RemoteLogger::write_to_csv(String header, String datastring_for_csv, String outname){
-    //instance of File object - used to be global
-    File dataFile;
+    //File dataFile;      // File instance -- only used within this function
 
-    // IF FILE DOES NOT EXIST, WRITE HEADER AND DATA, ELSE, WRITE DATA
-    if (!SD.exists(outname)){  //Write header if first time writing to the logfile
-    
-        dataFile = SD.open(outname, FILE_WRITE);  //Open file under filestr name from parameter file
-        if (dataFile) {
-            dataFile.println(header);
-            dataFile.println(datastring_for_csv);
+    /* If file doesn't exist, write header and data, otherwise only write data */
+    if (!SD.exists(outname)){
+        dataFile = SD.open(outname, FILE_WRITE);
+        if (dataFile){
+            dataFile.println(header);       // write header to file
+            dataFile.println(datastring_for_csv);       // write data to file
         }
-        dataFile.close();  //Close the dataFile
-    } else { //file already exists (don't need to write header)
-         dataFile = SD.open(outname, FILE_WRITE);
+        dataFile.close();       // make sure the file is closed
+    } else {
+        dataFile = SD.open(outname, FILE_WRITE);
         if (dataFile) {
-            dataFile.println(datastring_for_csv);
-            dataFile.close();
+            dataFile.println(datastring_for_csv);       // write data to file
         }
-  }
+        dataFile.close();       // make sure the file is closed
+    }
 }
 
 /**
- * TODO: specific to hydros --> need to take out of library
+ * reads battery voltage, returns in volts
+ * if using a board other than Feather M0 Adalogger, check documentation for battery read pin
+ * TODO: documentation for changing preset pins for a different board
+*/
+float RemoteLogger::sample_batt_v(){
+   pinMode(vbatPin, INPUT);
+   float batt_v = (analogRead(vbatPin) * 2 * 3.3) / 1024;      // preset conversion to volts
+   return batt_v; 
+}
+
+/**
+ * sample amount of RAM (memory) available on board
+
+*/
+int RemoteLogger::sample_memory(){
+    return freeMemory();
+}
+
+/**
+ * alert TPL done
+ * use A0 as output on Feather M0 Adalogger (only analog output)
+ * TODO: set A0 to low in setup code first thing to avoid alerting prematurely?
+*/
+void RemoteLogger::tpl_done(){
+    pinMode(tplPin, OUTPUT);       // just in case
+    digitalWrite(tplPin, LOW); delay(50); digitalWrite(tplPin, HIGH); delay(50);
+    digitalWrite(tplPin, LOW); delay(50); digitalWrite(tplPin, HIGH); delay(50);
+    digitalWrite(tplPin, LOW); delay(50); digitalWrite(tplPin, HIGH); delay(50);
+    digitalWrite(tplPin, LOW); delay(50); digitalWrite(tplPin, HIGH); delay(50);
+}
+
+/**
+ * remove datalogging and tracking files from the SD card
+ */
+void RemoteLogger::wipe_files(){
+    SD.remove("/TRACKING.csv");
+    SD.remove("/DATA.csv");
+    SD.remove("/HOURLY.csv");
+}
+
+
+
+
+/* TRACKING */
+
+/**
+ * increment the counter tracking how many samples have been taken since the last write to hourly
+ * this counter should not exceed 4 for 15min TPL interval
+ * use num_samples to access counter value
+*/
+void RemoteLogger::increment_samples(){
+    write_to_csv("n", "1", "/TRACKING.csv");
+}
+
+/**
+ * access counter of samples since last write to hourly
+ * should not exceed 4 for 15min TPL interval
+ * use increment_samples to increment counter
+*/
+int RemoteLogger::num_samples(){
+    CSV_Parser cp("s", true, ',');     //for reading from TRACKING.csv
+    cp.readSDfile("/TRACKING.csv");
+    return cp.getRowsCount() - 1; //don't count the header
+}
+
+/**
+ * access counter of number of hourly samples waiting to be transmitted
+*/
+int RemoteLogger::num_hours(){
+    String csv_setting = produce_csv_setting();
+    char buf[csv_setting.length()+1];
+    csv_setting.toCharArray(buf, csv_setting.length()+1);
+
+    CSV_Parser cp(buf, true, ',');
+    cp.readSDfile("/HOURLY.csv");
+
+    return cp.getRowsCount();
+}
+
+/**
+ * set sample counter to zero
+ * counts samples taken since a write to hourly
+*/
+void RemoteLogger::reset_sample_counter(){
+    SD.remove("/TRACKING.csv");
+}
+
+/**
+ * set hourly counter to zero
+ * counts hourly samples waiting to be transmitted
+ * warning: resetting this counter deletes all data stored in hourly file
+*/
+void RemoteLogger::reset_hourly(){
+    SD.remove("/HOURLY.csv");
+}
+
+
+
+
+/* TELEMETRY */
+
+/**
+ * send provided message over the Iridium network
+ * connect Iridium sleep pin (7 - grey) to pin 13 or change value of IridSlpPin
+ * TODO: investigate -- did removing the Watchdog mess things up? try it with the TPL
+*/
+int RemoteLogger::send_msg(String myMsg){
+    digitalWrite(IridSlpPin, HIGH);     // wake up the modem
+    delay(2000);        // wait for RockBlock to power on
+
+    IridiumSerial.begin(19200);     // Iridium serial at 19200 baud
+    modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);
+
+    int err = modem.begin();        // start up the modem
+    if (err == ISBD_IS_ASLEEP){
+        err = modem.begin();    // try to start up again
+    }
+
+    err = modem.sendSBDText(myMsg.c_str());    // try to send the message
+
+    if (err != ISBD_SUCCESS) { // if unsuccessful try again
+        err = modem.begin();
+        err = modem.sendSBDText(myMsg.c_str());
+    }
+
+    // calibrate the RTC time roughly every 5 days
+    /** TODO: will this miss days by accident? what if we miss noon? (i.e. only sending every two hours)*/
+    /** TODO: do we need the pre/post time strings? */
+    if (rtc.now().hour() == 12 & rtc.now().day() % 5 == 0) {
+        sync_clock();
+    }
+
+    digitalWrite(IridSlpPin, LOW);      // put the modem back to sleep
+    return err; 
+}
+
+/**
+ * test the Iridium modem + connection by sending a message
+ * sends "Hello world" + provided message
+ * will print firmware version and test signal quality
+ * if any functions fail it will leave the function immediately 
+ * warning that this will attempt to send a message and use credits
+ * prints status messages to Serial - does not return any status information from function
+*/
+void RemoteLogger::irid_test(String msg){
+    digitalWrite(IridSlpPin, HIGH);         // turn on modem
+    delay(2000);        // wait for modem to start up
+
+    int signalQuality = -1;     // need this to pass in for signal quality query
+
+    IridiumSerial.begin(19200);
+    modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);
+
+    /* begin satellite modem operation */
+    Serial.println(" - starting modem...");
+    int err = modem.begin();
+    if (err != ISBD_SUCCESS) {
+        Serial.print(" - begin failed: error ");
+        Serial.println(err);
+        if (err == ISBD_NO_MODEM_DETECTED) {
+            Serial.println(" - no modem detected: check wiring.");
+        }
+        return;     // leave the function - no point in trying to send
+    }
+
+    /* print the firmware version */
+    char version[12];
+    err = modem.getFirmwareVersion(version, sizeof(version));
+    if (err != ISBD_SUCCESS) {      // didn't get version info
+        Serial.print(" - firmware version failed: error ");
+        Serial.println(err);
+        return;     // leave the test function
+    }
+    Serial.print(" - firmware version is ");
+    Serial.print(version);
+    Serial.println(".");
+
+    /* get signal quality */
+    int n = 0;
+    while (n < 10) {    // test signal quality 10 times
+        err = modem.getSignalQuality(signalQuality);    // query signal quality
+        if (err != ISBD_SUCCESS) {
+            Serial.print(" - signalQuality failed: error ");
+            Serial.println(err);
+            return;        // leave the test function
+        }
+        Serial.print(" - signal quality is currently ");
+        Serial.print(signalQuality);
+        Serial.println(".");
+        n++;
+        delay(1000);
+    }
+
+    /* send the message */
+    Serial.print(" - Attempting: ");
+    msg = "Hello world! " + msg;
+    Serial.println(msg);
+    err = modem.sendSBDText(msg.c_str());
+    if (err != ISBD_SUCCESS) {
+        Serial.print(" - sendSBDText failed: error ");
+        Serial.println(err);
+        if (err == ISBD_SENDRECEIVE_TIMEOUT) {
+            Serial.println(" - try again with a better view of the sky.");
+        }
+    } else {
+        Serial.println(" - hey, it worked!");
+    }
+
+    /* sync clock to Iridium */
+    Serial.println("Sync clock to Iridium");
+    sync_clock();
+    
+}
+
+/**
+ * prepare message from hourly data file to send via Iridium to database
+ * actual data values are multiplied by varying powers of 10 to remove decimals
+ * see documentation for letter-to-header mappings and multipliers
+ * 
+ * if there are more lines in hourly data file than allowable in a single message, will send only
+ * the most recent from bottom of file (e.g. if max in message is 8 and 10 data samples, will send samples 3-10)
+ * 
+ * e.g. 
+ * Data file: 
+ * datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm
+ * 2001-01-10T01:11:05,4.31,24627,10,18.7,3
+ * 
+ * Message:
+ * ABC:01011001:431,246,10,187,3:
 */
 String RemoteLogger::prep_msg(){
+    int maxInMsg = 18;
 
-    SD.begin(chipSelect);
-    CSV_Parser cp("sfffff", true, ',');  // Set paramters for parsing the log file
-    cp.readSDfile("/HOURLY.csv"); //open CSV file of hourly readings 
-    int num_rows = cp.getRowsCount();  //Get # of rows
+    // process header to determine number of columns (parameters)
+    // Serial.println(F("preparing csv setting..."));         /** TODO: remove */
+    String csv_setting = produce_csv_setting();
+    // Serial.println(csv_setting);    /** TODO: remove */
+
+    SD.begin(chipSelect);       //start the SD card connection
     
-    //get information from the CSV  
-    char **out_datetimes = (char **)cp["datetime"];
-    float *out_mem = (float *)cp["memory"];
-    float *out_batt_v = (float *)cp["batt_v"];
-    float *out_water_level_mm = (float *)cp["water_level_mm"];
-    float *out_water_temp_c = (float *)cp["water_temp_c"];
-    float *out_water_ec_dcm = (float *)cp["water_ec_dcm"];
-  
-    //format the message according to message pattern (see docs)
-    String datastring_msg = 
-        my_letter + ":" +
-        String(out_datetimes[0]).substring(2, 4) + 
-        String(out_datetimes[0]).substring(5, 7) + 
-        String(out_datetimes[0]).substring(8, 10) + 
-        String(out_datetimes[0]).substring(11, 13) + ":" +
-        String(round(out_batt_v[num_rows-1] * 100)) + ":" +
-        String(round(out_mem[num_rows-1] / 100)) + ":";
-  
-    //attach the readings to the message preamble
-    for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
-        datastring_msg = 
-        datastring_msg + 
-        String(round(out_water_level_mm[i])) + ',' + 
-        String(round(out_water_temp_c[i]*10)) + ',' + 
-        String(round(out_water_ec_dcm[i])) + ':';              
+    // Serial.println(freeMemory());       /** TODO: remove */
+    // Serial.println(F("preparing CSV parser..."));      /** TODO: remove */
+    char buf[csv_setting.length()+1];   Serial.println(1);  /** TODO: remove */
+    csv_setting.toCharArray(buf, csv_setting.length()+1);  
+    // Serial.println(freeMemory());       /** TODO: remove */
+    CSV_Parser cp(buf, true, ',');      
+    cp.readSDfile("/HOURLY.csv");       
+    int num_rows = cp.getRowsCount(); 
+
+    int first;          // where to start adding data to message (limit message size)
+    if (num_rows > maxInMsg) first = num_rows - maxInMsg; 
+    else first = 0;
+
+    // Serial.println(6);      /** TODO: remove */
+
+    // Serial.println(F("preparing header index..."));        /** TODO: remove */
+    // figure out where each parameter's info is in the dictionary
+    // int **headerIndex;
+    // headerIndex[num_params];
+    // populate_header_index(headerIndex, num_params);
+
+    // Serial.println(F("building message..."));      /** TODO: remove */
+    // generate the letters
+    String datastring_msg = "";
+    datastring_msg.reserve(200);
+    // for(int i = 0; i < num_params; i++){
+    //     datastring_msg += LETTERS[*headerIndex[i]];
+    // }
+
+    datastring_msg += myLetters;
+    datastring_msg += ":";
+
+    int column = 0;        // position of the header we're on
+
+    // Serial.println(F("date and time..."));     /** TODO: remove */
+    //datetime (of first measurement in message)
+    char **out_datetimes = (char **)cp[column];       // get list of datetimes 
+    datastring_msg += String(out_datetimes[first]).substring(2,4); 
+    datastring_msg += String(out_datetimes[first]).substring(5,7);
+    datastring_msg += String(out_datetimes[first]).substring(8,10);
+    datastring_msg += String(out_datetimes[first]).substring(11,13);
+    datastring_msg += ":";
+
+    delete out_datetimes;       // free up memory
+
+    column++;
+
+    float *floatOut;        //temporary variable for float columns to live in
+
+    // Serial.println(F("battery voltage and memory..."));   /** TODO: remove */
+    //battery voltage (most recent)
+    floatOut = (float *)cp[column];
+    datastring_msg += String(round(floatOut[num_rows-1] * BATT_MULT));
+    datastring_msg += ":";
+
+    column++;
+
+    //free memory (most recent)
+    floatOut = (float *)cp[column];
+    datastring_msg += String(round(floatOut[num_rows-1] * MEM_MULT)); 
+    datastring_msg += ":";
+
+    // Serial.print(F("adding data... "));           /** TODO: remove */
+    //sampled data
+    for (int row = first; row < num_rows; row++) {        // for each row in the data file
+        column = 3;    //start each time at the start of the sampled data (fourth column)
+        // Serial.print(F("row ")); Serial.print(row); Serial.print(F("   "));   /** TODO: remove */
+
+        while (column < myParams+3) {      // for each column (sampled data point) in the row 
+            // floatOut = (float *)cp[column];
+            // datastring_msg += String(round(floatOut[row] * myMultipliers[column-3]));
+
+            // if(column != myParams+2) { datastring_msg += ","; }           // add commas between data points
+            // else { datastring_msg += ":"; }     // add a colon only to data from last column
+
+            // manage selection of which parameters to send with multipliers
+            if(myMultipliers[column-3] != 0){         // want to send this in the message
+                floatOut = (float *)cp[column];
+                datastring_msg += String(round(floatOut[row] * myMultipliers[column-3]));
+
+                datastring_msg += ",";         // add commas between 
+            }
+
+            column++;       //go to the next column
+        }
+        datastring_msg.setCharAt(datastring_msg.length()-1, ':');       // set the last character 
     }
+    // Serial.println();       /** TODO: remove */
+
+    // free up memory
+    delete floatOut;
+    // delete headerIndex;
+    
+    return datastring_msg;
+}
+
+/**
+ * prepare message in same format as usual but with only the most recent sample written to hourly data file
+ * intended for use during low power mode as absolute minimum amount of data transfer
+ */
+String RemoteLogger::low_pwr_prep_msg(){
+    String csv_setting = produce_csv_setting();
+
+    SD.begin(chipSelect);       //start the SD card connection
+
+    char buf[csv_setting.length()+1];   // Serial.println(1);  /** TODO: remove */
+    csv_setting.toCharArray(buf, csv_setting.length()+1); 
+    CSV_Parser cp(buf, true, ',');      
+    cp.readSDfile("/HOURLY.csv");       
+    int num_rows = cp.getRowsCount(); 
+
+    String datastring_msg = "";
+    datastring_msg.reserve(40);
+
+    datastring_msg += myLetters;
+    datastring_msg += ":";
+
+    int column = 0;        // position of the header we're on
+
+    // date and time
+    char **out_datetimes = (char **)cp[column];       // get list of datetimes 
+    datastring_msg += String(out_datetimes[num_rows-1]).substring(2,4); 
+    datastring_msg += String(out_datetimes[num_rows-1]).substring(5,7);
+    datastring_msg += String(out_datetimes[num_rows-1]).substring(8,10);
+    datastring_msg += String(out_datetimes[num_rows-1]).substring(11,13);
+    datastring_msg += ":";
+
+    delete out_datetimes;       // free up memory
+
+    column++;
+
+    float *floatOut;        //temporary variable for float columns to live in
+
+    // battery voltage (most recent)
+    floatOut = (float *)cp[column];
+    datastring_msg += String(round(floatOut[num_rows-1] * BATT_MULT));
+    datastring_msg += ":";
+
+    column++;
+
+    //free memory (most recent)
+    floatOut = (float *)cp[column];
+    datastring_msg += String(round(floatOut[num_rows-1] * MEM_MULT)); 
+    datastring_msg += ":";
+
+    column = 3;
+    while(column < myParams+3){
+        // manage selection of which parameters to send with multipliers
+        if(myMultipliers[column-3] != 0){         // want to send this in the message
+            floatOut = (float *)cp[column];
+            datastring_msg += String(round(floatOut[num_rows-1] * myMultipliers[column-3]));
+
+            datastring_msg += ",";         // add commas between 
+        }
+
+        column++;       //go to the next column
+    }
+    datastring_msg.setCharAt(datastring_msg.length()-1, ':');       // set the last character 
+
+    // free up memory
+    delete floatOut;
 
     return datastring_msg;
 }
 
-float RemoteLogger::sample_batt_v(){
-    pinMode(vbatPin, INPUT);
-    float batt_v = (analogRead(vbatPin) * 2 * 3.3) / 1024;
-    return batt_v;
+
+
+
+/* SAMPLING FUNCTIONS */
+
+/**
+ * sample from Hydros21 sensor
+ * supply with bus and address of sensor 
+ * 
+ * bus: valid SDI12 bus initialized with the data pin attached to Hydros sensor, must have had begin() called already
+ * sensor_address: SDI-12 address of the Hydros sensor, usually assumed to be 0
+*/
+String RemoteLogger::sample_hydros_M(SDI12 bus, int sensor_address){
+    sdiResponse = "";
+    myCommand = String(sensor_address) + "M!";       // first command to take a measurement
+
+    bus.sendCommand(myCommand);
+    delay(30);
+
+    while (bus.available()) {
+        char c = bus.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);      // 1 character ~ 7.5ms
+        }
+    }
+
+    /* clear buffer */
+    if (sdiResponse.length() > 1) {
+        bus.clearBuffer();
+    }
+    delay(2000);        // delay between taking reading and requesting data
+    sdiResponse = "";    // clear response string (to get ready to read data)
+
+    myCommand = String(sensor_address) + "D0!";         // string to request data from last measurement
+    bus.sendCommand(myCommand);
+    delay(30);      // wait for a response
+
+    while (bus.available()) {
+        char c = bus.read();
+        if ((c != '\n') && (c != '\r')) {
+            sdiResponse += c;
+            delay(10);          // 1 character ~ 7.5ms
+        }
+    }
+
+    sdiResponse = sdiResponse.substring(3);
+
+    for (int i = 0; i < sdiResponse.length(); i++) {
+        char c = sdiResponse.charAt(i);
+        if (c == '+') {
+            sdiResponse.setCharAt(i, ',');  // replace any + with ,
+        }
+    }
+
+    /* clear buffer */
+    if (sdiResponse.length() > 1) {
+        bus.clearBuffer();
+    }
+
+    if (sdiResponse == ""){
+        sdiResponse = "-9,-9,-9";   // no reading
+    }
+
+    bus.clearBuffer();
+
+    return sdiResponse;
 }
 
 /**
- * M: SDI-12 communication protocol command (measure)
-*/
-String RemoteLogger::sample_hydros_M(){
+ * sample measurements from OTT PLS
+ * returns water level, water temp, ott status
+ * 
+ * bus: SDI12 object, has been started by the user with attached datapin
+ * sensor_address: address of sensor, factory default 0 (see OTT docs to change)
+ */
+String RemoteLogger::sample_ott_M(SDI12 bus, int sensor_address){
+    myCommand = String(sensor_address) + "M!";      // first command to take a measurement
 
-    myCommand = String(SENSOR_ADDRESS) + "M!";  // first command to take a measurement
+    bus.sendCommand(myCommand);
+    delay(30);
 
-    mySDI12.sendCommand(myCommand);
-    delay(30);  // wait a while for a response
-
-    while (mySDI12.available()) {  // build response string
-        char c = mySDI12.read();
+    while(bus.available()){     // build response string
+        char c = bus.read();
         if ((c != '\n') && (c != '\r')) {
             sdiResponse += c;
-            delay(10);  // 1 character ~ 7.5ms
+            delay(10);      // 1 character = ~7.5 ms
         }
     }
 
-    /*Clear buffer*/
-    if (sdiResponse.length() > 1)
-        mySDI12.clearBuffer();
+    // clear buffer
+    if(sdiResponse.length() > 1){
+        bus.clearBuffer();
+    }
+    delay(2000);        // wait for sensor to take measurement
+    sdiResponse = "";   // clear response string
 
-    delay(2000);       // delay between taking reading and requesting data
-    sdiResponse = "";  // clear the response string
+    // next command to request data
+    myCommand = String(sensor_address) + "D0!";
 
-    // next command to request data from last measurement
-    myCommand = String(SENSOR_ADDRESS) + "D0!";
+    bus.sendCommand(myCommand);
+    delay(30);
 
-    mySDI12.sendCommand(myCommand);
-    delay(30);  // wait a while for a response
-
-    while (mySDI12.available()) {  // build string from response (coming character by character along data bus)
-        char c = mySDI12.read();
+    while(bus.available()){
+        char c = bus.read();
         if ((c != '\n') && (c != '\r')) {
             sdiResponse += c;
-            delay(10);  // 1 character ~ 7.5ms
+            delay(10);      // 1 character = ~7.5 ms
         }
     }
 
-    sdiResponse = sdiResponse.substring(3); //cut off the first 3 characters
+    // subset string
+    sdiResponse = sdiResponse.substring(3);
 
-    //replace all + with ,
+    // replace + with ,
     for (int i = 0; i < sdiResponse.length(); i++) {
         char c = sdiResponse.charAt(i);
         if (c == '+') {
@@ -231,416 +627,286 @@ String RemoteLogger::sample_hydros_M(){
     }
 
     // clear buffer
-    if (sdiResponse.length() > 1)
-        mySDI12.clearBuffer();
+    if(sdiResponse.length() > 1){
+        bus.clearBuffer();
+    }
 
-    if (sdiResponse == "")
-        sdiResponse = "-9,-9,-9"; // no reading
-
-    digitalWrite(HYDROS_UNSET_PIN, HIGH); delay(50);
-    digitalWrite(HYDROS_UNSET_PIN, LOW); delay(50);
+    if(sdiResponse == ""){      // no data
+        sdiResponse = "-9,-9,-9";
+    }
 
     return sdiResponse;
 }
 
-
-String RemoteLogger::sample_ott(){
-    return sample_ott_M() + sample_ott_V();
-}
-
-
 /**
- * M: protocol command (first three)
-*/
-String RemoteLogger::sample_ott_M(){
+ * sample system test information 
+ * returns relative humidity, dew (?), deg (?) of OTT - see docs
+ * 
+ * bus: SDI12 object, has been started by the user with attached datapin
+ * sensor_address: address of sensor, factory default 0 (see OTT docs to change)
+ */
+String RemoteLogger::sample_ott_V(SDI12 bus, int sensor_address){
+    myCommand = String(sensor_address) + "V!";      // first command to take a measurement
 
-    myCommand = String(SENSOR_ADDRESS) + "M!";// first command to take a measurement
+    bus.sendCommand(myCommand);
+    delay(30);
 
-    mySDI12.sendCommand(myCommand);
-    delay(30);  // wait a while for a response
-
-    while (mySDI12.available()) {  // build response string
-        char c = mySDI12.read();
+    while(bus.available()){     // build response string
+        char c = bus.read();
         if ((c != '\n') && (c != '\r')) {
             sdiResponse += c;
-            delay(10);  // 1 character ~ 7.5ms
+            delay(10);      // 1 character = ~7.5 ms
         }
     }
 
-    /*Clear buffer*/
-    if (sdiResponse.length() > 1)
-        mySDI12.clearBuffer();
+    // clear buffer
+    if(sdiResponse.length() > 1){
+        bus.clearBuffer();
+    }
+    delay(2000);        // wait for sensor to take measurement
+    sdiResponse = "";   // clear response string
 
-    delay(2000);       // delay between taking reading and requesting data
-    sdiResponse = "";  // clear the response string
+    // next command to request data
+    myCommand = String(sensor_address) + "D0!";
 
+    bus.sendCommand(myCommand);
+    delay(30);
 
-    // next command to request data from last measurement
-    myCommand = String(SENSOR_ADDRESS) + "D0!";
-
-    mySDI12.sendCommand(myCommand);
-    delay(30);  // wait a while for a response
-
-    while (mySDI12.available()) {  // build string from response
-        char c = mySDI12.read();
+    while(bus.available()){
+        char c = bus.read();
         if ((c != '\n') && (c != '\r')) {
             sdiResponse += c;
-            delay(10);  // 1 character ~ 7.5ms
+            delay(10);      // 1 character = ~7.5 ms
         }
     }
 
-    //subset responce
+    // subset string
     sdiResponse = sdiResponse.substring(3);
 
-    for (int i = 0; i < sdiResponse.length(); i++)
-    {
-
+    // replace + with ,
+    for (int i = 0; i < sdiResponse.length(); i++) {
         char c = sdiResponse.charAt(i);
-
-        if (c == '+')
-        {
+        if (c == '+') {
             sdiResponse.setCharAt(i, ',');
         }
-
     }
 
-    //clear buffer
-    if (sdiResponse.length() > 1)
-        mySDI12.clearBuffer();
+    // clear buffer
+    if(sdiResponse.length() > 1){
+        bus.clearBuffer();
+    }
 
-    if(sdiResponse == "")
+    if(sdiResponse == ""){      // no data
         sdiResponse = "-9,-9,-9";
-    
-    return sdiResponse;
-}
-
-
-/**
- * V: protocol command (next three measurements)
-*/
-String RemoteLogger::sample_ott_V(){
-
-    myCommand = String(SENSOR_ADDRESS) + "V!";// first command to take a measurement
-
-    mySDI12.sendCommand(myCommand);
-    delay(30);  // wait a while for a response
-
-    while (mySDI12.available()) {  // build response string
-        char c = mySDI12.read();
-        if ((c != '\n') && (c != '\r')) {
-            sdiResponse += c;
-            delay(10);  // 1 character ~ 7.5ms
-        }
     }
-
-    /*Clear buffer*/
-    if (sdiResponse.length() > 1)
-        mySDI12.clearBuffer();
-
-    delay(2000);       // delay between taking reading and requesting data
-    sdiResponse = "";  // clear the response string
-
-
-    // next command to request data from last measurement
-    myCommand = String(SENSOR_ADDRESS) + "D0!";
-
-    mySDI12.sendCommand(myCommand);
-    delay(30);  // wait a while for a response
-
-    while (mySDI12.available()) {  // build string from response
-        char c = mySDI12.read();
-        if(c == '-'){c = (char) ',';}    
-        if ((c != '\n') && (c != '\r')) {
-            sdiResponse += c;
-            delay(10);  // 1 character ~ 7.5ms
-        }
-    }
-
-    //subset responce
-    sdiResponse = sdiResponse.substring(3);
-
-    for (int i = 0; i < sdiResponse.length(); i++)
-    {
-
-        char c = sdiResponse.charAt(i);
-
-        if (c == '+')
-        {
-            sdiResponse.setCharAt(i, ',');
-        }
-
-    }
-
-    //clear buffer
-    if (sdiResponse.length() > 1)
-        mySDI12.clearBuffer();
-    
-    if(sdiResponse == "")
-        sdiResponse = "-9,-9,-9";
 
     return sdiResponse;
 }
 
 /**
- * Analite 105 measures turbidity in NTU (Nephelometric Turbidity Units)
-*/
-String RemoteLogger::sample_analite_195(){
+ * sample all 6 parameters from OTT PLS
+ * returns water level, water temp, status, RH, dew, deg 
+ * corresponds to default OTT header (see docs)
+ * 
+ * bus: SDI12 object, has been started by the user with attached datapin
+ * sensor_address: address of sensor, factory default 0 (see OTT docs to change)
+ */
+String RemoteLogger::sample_ott(SDI12 bus, int sensor_address){
+    String sample;
+    sample.reserve(30);
+    sample = sample_ott_M(bus, sensor_address) + "," + sample_ott_V(bus, sensor_address);
+
+    return sample;
+}
+
+/**
+ * sample turbidity from Analite 195 sensor
+ * must be attached to two digital outputs (wiper set/unset) and one analog input (data pin)
+ * the analog input pin does not need to be set to input 
+ * 
+ * wiper frequency is tied to hourly writes to the CSV
+ * will run wiper once every four power cycles (once per hour with 15 min TPL)
+ * 
+ * analogDataPin: analog input for data read from Analite 195
+ * wiperSetPin: digital output pin for wiper set on Analite 195 (see Analite docs for setup)
+ * wiperUnsetPin: digital output pin for wiper unset on Analite 195 (see Analite docs for setup)
+ */
+String RemoteLogger::sample_analite_195(int analogDataPin, int wiperSetPin, int wiperUnsetPin){
+    // set up pins in case the user didn't
+    pinMode(wiperSetPin, OUTPUT);
+    pinMode(wiperUnsetPin, OUTPUT);
 
     analogReadResolution(12);
+    float values[10];
 
-    float values[10];  //Array for storing sampled distances
-
-    if (analite_wiper_cnt >= 5) {  // Probe will wipe after 6 power cycles (1 hr at 10 min interval)
-
-        digitalWrite(ANALITE_WIPER_SET_PIN, HIGH); delay(50); delay(100);
-        digitalWrite(ANALITE_WIPER_SET_PIN, LOW); delay(50); 
-        digitalWrite(ANALITE_WIPER_UNSET_PIN, HIGH); delay(50); 
-        digitalWrite(ANALITE_WIPER_UNSET_PIN, LOW); delay(50); delay(14000);  // wait for full rotation (about 6 seconds)
-
-        analite_wiper_cnt = 0;  // Reset wiper count to zero
-    
-    } else {
-        analite_wiper_cnt++;
-        digitalWrite(ANALITE_WIPER_UNSET_PIN, HIGH); delay(20);  // Unnecessary, but good to double check it's off
-        digitalWrite(ANALITE_WIPER_UNSET_PIN, LOW); delay(20);
+    // check how many lines in tracker file
+    int samplesSinceHourly = num_samples();
+    if (samplesSinceHourly == 4){     // it's been an hour -- time to wipe
+        digitalWrite(wiperSetPin, HIGH); delay(150); 
+        digitalWrite(wiperSetPin, LOW); delay(50);
+        digitalWrite(wiperUnsetPin, HIGH); delay(50);
+        digitalWrite(wiperUnsetPin, LOW); delay(50); delay(14000);      // wait for wipe cycle - 6 seconds ish
+    } else {    // not wiping, just make sure it's off
+        digitalWrite(wiperUnsetPin, HIGH); delay(20);
+        digitalWrite(wiperUnsetPin, LOW); delay(20);
     }
 
-    for (int i = 0; i < 10; i++) {
-        values[i] = (float)analogRead(ANALITE_TURB_ANALOG);  // Read analog value from probe
+    // sample 10 values from sensor
+    for(int i = 0; i < 10; i++){
+        values[i] = (float)analogRead(analogDataPin);       // read from probe
         delay(5);
     }
 
-    float med_turb_alog = stats.median(values, 10);  // Compute median 12-bit analog val
+    float medTurbAlog = stats.median(values, 10);       // compute median 12-bit analog value
 
-    //Convert analog value (0-4096) to NTU from provided linear calibration coefficients
-    float ntu_analog = med_turb_alog;  //(m * med_turb_alog) + b;
+    // convert from analog value to NTU with provided calibration coefficients
+    /** TODO: this just reads it straight across - need to add the calibration stuff */
+    float ntuAnalog = medTurbAlog;
+    int ntuInt = round(ntuAnalog);      // round to an integer
 
-    int ntu_int = round(ntu_analog);
+    analogReadResolution(10);       /** TODO: what is this useful for? */
 
-    analogReadResolution(10); //back to default
-
-    return String(ntu_int);
+    return String(ntuInt);
 }
 
 /**
- * Ultrasonic ranging (distance)
-*/
-long RemoteLogger::sample_ultrasonic(){
-    int n = 10; //number of samples
+ * sample range from MaxBotix MB7369 ultrasonic ranger
+ * attach to 2 digital outputs and 1 digital input 
+ * use a PWM pin for input (all pins but A1, A5 on Feather M0 Adalogger, see docs for other boards)
+ * returns minimum of 10 samples
+ * 
+ * powerPin: digital output controlling ranger power, see ranger docs for setup
+ * triggerPin: digital output controlling ranger active time, see ranger docs for setup
+ * pulseInputPin: digital input to collect data, see ranger docs for setup
+ * 
+ * TODO: should this be returned as a string for continuity? or left as long for memory efficiency?
+ */
+String RemoteLogger::sample_ultrasonic(int powerPin, int triggerPin, int pulseInputPin){
+    pinMode(powerPin, OUTPUT);
+    digitalWrite(powerPin, HIGH); delay(500);   // turn on the ranger
 
-    pinMode(ULTRASONIC_TRIGGER_PIN, OUTPUT);       //Set ultrasonic ranging trigger pin as OUTPUT
-    pinMode(ULTRASONIC_PULSE_PIN, INPUT);          //Set ultrasonic pulse width pin as INPUT
-    
-    float values[n];          //Array for storing sampled distances
-    
-    digitalWrite(ULTRASONIC_TRIGGER_PIN, HIGH);  //Write the ranging trigger pin HIGH
-    delay(30);    
-    for (int16_t i = 0; i < n; i++)  //Take N samples
-    {
-        int32_t duration = pulseIn(ULTRASONIC_PULSE_PIN, HIGH);  //Get the pulse duration (i.e.,time of flight)
+    // set up pins
+    pinMode(triggerPin, OUTPUT);
+    pinMode(pulseInputPin, INPUT);
+
+    float values[10];
+    digitalWrite(triggerPin, HIGH);     // start the ranger
+    delay(30);
+
+    for(int i = 0; i < 10; i++){
+        int32_t duration = pulseIn(pulseInputPin, HIGH);    // get pulse duration -- time of flight
         values[i] = duration;
-        delay(150);  //Dont sample too quickly < 7.5 Htz
+        delay(150);     // don't sample too quickly < 7.5Hz
     }
-    long med_distance = stats.minimum(values, n);  //Copute median distance
-    digitalWrite(ULTRASONIC_TRIGGER_PIN, LOW);  //Write the ranging trigger pin LOW
-    return med_distance;
+    digitalWrite(triggerPin, LOW);      // stop the ranger
+
+    long minDistance = stats.minimum(values, 10);       // get the minimum of the sampled values
+
+    digitalWrite(powerPin, LOW); delay(50);     // turn off the ranger
+    return String(minDistance);
 }
 
 /**
- * specific to hydros --> need to take out of library
-*/
-String RemoteLogger::take_measurement(){
-    digitalWrite(SensorSetPin, HIGH); delay(50);
-    digitalWrite(SensorSetPin, LOW); delay(1000);
-  
-    String msmt = String(sample_batt_v()) + "," + 
-        freeMemory() + "," + 
-        sample_hydros_M();
-
-    digitalWrite(SensorUnsetPin, HIGH); delay(50);
-    digitalWrite(SensorUnsetPin, LOW); delay(50);
-
-    return msmt;
+ * sample temperature and relative humidity from Adafruit SHT31 sensor
+ * hook SHT31 up to I2C
+ * 
+ * sensor: Adafruit_SHT31 object, does not have to be started
+ * sensorAddress: address of the SHT31 sensor, factory options 0x44 or 0x45
+ */
+String RemoteLogger::sample_sht31(Adafruit_SHT31 sensor, int sensorAddress){
+    if (!sensor.begin(sensorAddress)) {
+        return "-9,-9";         // no data - couldn't find the sensor
+    }    
+    sensor.heater(0);
+    float t = sensor.readTemperature();
+    float h = sensor.readHumidity(); 
+    
+    String sample = String(t) + "," + String(h);
+    return sample;
 }
 
-// String RemoteLogger::take_measurement(){
+/**
+ * sample temperature from DS18B20
+ * must be set up on a digital pin as a OneWire device 
+ * 
+ * sensors: DallasTemperature array of sensors set up on OneWire device
+ * sensorIndex: position of sensor to sample in the array of sensors (first is 0, check docs)
+ */
+String RemoteLogger::sample_DS18B20(DallasTemperature sensors, int sensorIndex){
+    sensors.requestTemperatures();
+    float temp = sensors.getTempCByIndex(sensorIndex);
+    return String(temp);
+}
 
-//     String msmt = String(sample_batt_v()) + "," +
-//         freeMemory();
 
-//     for(int i = 0; i < sensors; i++){
-//         msmt += ',' + sample(snames[i]);
-//     }
 
-//     return msmt;
-// }
 
-void RemoteLogger::irid_test(String msg){
-    pinMode(IridPwrPin, OUTPUT);     //Set iridium power pin as OUTPUT
-    digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
-    delay(2000);
+/* PRIVATE HELPERS */
 
-    int signalQuality = -1;
-
-    IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
-    modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
-
-    // Begin satellite modem operation
-    Serial.println(" - starting modem...");
-    int err = modem.begin();
-
-    if (err != ISBD_SUCCESS) {
-        Serial.print(" - begin failed: error ");
-        Serial.println(err);
-        if (err == ISBD_NO_MODEM_DETECTED)
-            Serial.println(" - no modem detected: check wiring.");
-        return;
-    }
-
-    // Example: Print the firmware revision
-    char version[12];
-    err = modem.getFirmwareVersion(version, sizeof(version));
-    if (err != ISBD_SUCCESS) {
-        Serial.print(" - firmware version failed: error ");
-        Serial.println(err);
-        return;
-    }
-
-    Serial.print(" - firmware version is ");
-    Serial.print(version);
-    Serial.println(".");
-
-    int n = 0;
-    while (n < 10) {
-        err = modem.getSignalQuality(signalQuality);
-        if (err != ISBD_SUCCESS) {
-            Serial.print(" - signalQuality failed: error ");
-            Serial.println(err);
-            return;
-        }
-
-        Serial.print(" - signal quality is currently ");
-        Serial.print(signalQuality);
-        Serial.println(".");
-        n = n + 1;
-        delay(1000);
-    }
-
-    // Send the message
-    Serial.print(" - Attempting: ");
-    msg = "Hello world! " + msg;
-    Serial.println(msg);
-
-    err = modem.sendSBDText(msg.c_str());
-
-    if (err != ISBD_SUCCESS) {
-        Serial.print(" - sendSBDText failed: error ");
-        Serial.println(err);
-        if (err == ISBD_SENDRECEIVE_TIMEOUT)
-            Serial.println(" - try again with a better view of the sky.");
-    } else {
-        Serial.println(" - hey, it worked!");
-    }
-
-    Serial.println("Sync clock to Iridium");
+/**
+ * helper function 
+ * sync RTC to system time from Iridium RockBlock modem
+*/
+void RemoteLogger::sync_clock(){
     struct tm t;
     int err_time = modem.getSystemTime(t);
     if (err_time == ISBD_SUCCESS) {
         String pre_time = rtc.now().timestamp();
+        Serial.print("pretime: "); Serial.println(pre_time);
         rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
         String post_time = rtc.now().timestamp();
+        Serial.print("posttime: "); Serial.println(post_time);
     }
-
-    digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
 }
 
-int RemoteLogger::send_msg(String my_msg){
-    digitalWrite(IridPwrPin, HIGH);  //Drive iridium power pin LOW
-    delay(2000);
-
-    IridiumSerial.begin(19200);                            // Start the serial port connected to the satellite modem
-    modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);  // This is a low power application
-    //modem is instance of IridiumSBD
-
-    Watchdog.disable();
-    // Serial.print(" begin");
-    int err = modem.begin(); 
-    Watchdog.enable(watchdog_timer);
-
-    if (err == ISBD_IS_ASLEEP) {
-        Watchdog.disable();
-        // Serial.print(" wake");
-        err = modem.begin();
-        Watchdog.enable(watchdog_timer);
+/**
+ * helper function
+ * generate string for argument to CSV parser 
+ * format e.g. "sffff" for a string column and four float columns
+ * 
+ * TODO: could change this so it directly produces a char array rather than a String -- convert it every time anyway
+*/
+String RemoteLogger::produce_csv_setting(){
+    String setting = "s";
+    for (int i = 1; i < myParams+3; i++){
+        setting += "f";
     }
-
-    Watchdog.disable();
-    // modem.adjustSendReceiveTimeout(300);
-    // Serial.print(" send");
-    err = modem.sendSBDText(my_msg.c_str());
-    Watchdog.enable(watchdog_timer);
-  
-    //if it doesn't send try again
-    if (err != ISBD_SUCCESS){ //} && err != 13) {
-        Watchdog.disable();
-        // Serial.print(" retry");
-        err = modem.begin();
-        Watchdog.enable(watchdog_timer);
-        // modem.adjustSendReceiveTimeout(300);
-        // Serial.print(" send");
-        Watchdog.disable();
-        err = modem.sendSBDText(my_msg.c_str());
-        Watchdog.enable(watchdog_timer);
-    }
-
-    //update local time (RTC) to time from Iridium
-    // Serial.print(" time");
-    if(rtc.now().hour() == 12 & rtc.now().day() % 5 == 0){
-        struct tm t;
-        int err_time = modem.getSystemTime(t);
-        if (err_time == ISBD_SUCCESS) {
-            String pre_time = rtc.now().timestamp();
-            rtc.adjust(DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec));
-            String post_time = rtc.now().timestamp();
-        }
-    }
-  
-    digitalWrite(IridPwrPin, LOW);  //Drive iridium power pin LOW
-    return err;    
+    return setting;
 }
 
 
 
 
-/* SENSOR CLASS */
-// Sensor::Sensor(){
-//     name = EMPTY;
-// }
+/* PIN SETTERS */
 
-// Sensor::Sensor(String sensor_name){
-//     /** TODO: add some checks in here to see if the entered names are actually in the allowed names*/
+/**
+ * LED pin
+ * default pin 8 - built-in green LED on Feather M0 Adalogger 
+ * can modify if additional LEDs are added 
+*/
+void RemoteLogger::setLedPin(byte pin){ ledPin = pin; }
 
-//     name = sensor_name;
+/**
+ * input for checking battery voltage
+ * pin 9 on Feather M0 Adalogger (check docs for other boards)
+*/
+void RemoteLogger::setBattPin(byte pin){ vbatPin = pin; }
 
-//     //assign header
-//     assign_headers();
-// }
+/**
+ * TPL done pin 
+ * pin A0 on Feather M0 Adalogger - only analog output pin
+ * check docs for other boards (need analog output)
+*/
+void RemoteLogger::setTplPin(byte pin){ tplPin = pin; }
 
-// String Sensor::sample(){
-//     if (name==EMPTY){
-//         return "";
-//     }
-//     else if (name==HYDROS){
-//         return sample_hydros_M();
-//     }
-//     else if (name==ANALITE){
-//         return sample_analite_195();
-//     }
-// }
+/**
+ * Iridium sleep pin (grey - pin 7)
+ * default pin 13 - modify if changing wiring
+*/
+void RemoteLogger::setIridSlpPin(byte pin){ IridSlpPin = pin; }
 
-
-// void Sensor::assign_headers(){
-//     //assign header
-//     if (name==HYDROS) {data_points = HYDROS_DATA;}
-//     else if (name==ANALITE) {data_points = ANALITE_DATA;}
-// }
+/**
+ * chip select pin for SD card
+ * pin 4 on Feather M0 Adalogger (check docs for other boards)
+*/
+void RemoteLogger::setSDSelectPin(byte pin){ chipSelect = pin; }

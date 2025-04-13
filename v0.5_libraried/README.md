@@ -1,12 +1,185 @@
 # Version 0.5 - Adding Libraries
 
-### Note: files in libraries/WeatherStation are the current files for the WeatherStation library applied across the .ino files. Do not change the name of the libraries or WeatherStation directories
+**For the most current library files, visit the designated library repository at *INSERT LINK*. <br> Library files on this repository are legacy as of August 30, 2024.**
 
+This folder contains contributions from Rachel Pagdin between November 2023 and August 2024. These contributions can be split into two main categories: 
+1. Development of the RemoteLogger library and documentation for that library. Sketches in this folder have varying levels of application of the library and are retained as documentation of progress for another developer if it is useful to go back. For the most recent functioning code, consult the RemoteLogger library examples folder.
+2. Prototyping of various improvement ideas and sensors. Code and documentation for these projects are stored in the prototyping folder.
 
-Author: Rachel Pagdin
+This document includes an inexhaustive log of additions to the RemoteLogger library. Additions since June have been documentation and example code. The log is retained as rationale behind the library design choices. These design choices are more formally documented in the first parts of this document. <br>
+This is companion documentation to the RemoteLogger library for Arduino, with the intention of providing documentation and guidance to anyone further developing or modifying the library source code. <br>
+This is *not* intended to serve as documentation for users of the library. For user documentation, refer to the document included in the RemoteLogger library download.
 
+## Table of Contents
+[**Introduction**](#introduction)<br>
+&ensp;&ensp;[Features](#features)<br>
+&ensp;&ensp;[*Licensing](#licensing)<br>
+[**Library scope**](#library-scope)<br>
+[**Limitations**](#limitations)<br>
+&ensp;&ensp;[Limitations from hardware/external systems](#limitations-from-hardwareexternal-systems)<br>
+&ensp;&ensp;[Limitations from software design](#limitations-from-software-design)<br>
+[**Interface with MoF database**](#interface-with-mof-database)<br>
+[**Library add log**](#library-add-log)<br>
+[**\*Acknowledgements and Credits**](#acknowledgements-and-credits)<br>
+
+----
+
+## Introduction
+<img src='https://github.com/bevingtona/RemoteLogger/assets/9651129/34783a47-727d-43ba-a6db-63897659f26c' width='250'>
+
+This project that allows you to measure and log hydrometric data in real-time using an Arduino Feather M0 microcontroller. This project is perfect for environmental monitoring applications, such as river water level measurements, flood monitoring, and water quality assessment.
+
+With this hydrometric data logger, you can collect water level data and transmit it to your e-mail or a cloud service for real-time monitoring and analysis. The use of the Arduino Feather M0 ensures low power consumption and compatibility with various sensors, making it a versatile and reliable solution for your hydrometric data logging needs.
+
+### Features
+-   Realtime measurement (Water level, water temperature, electrical conductivity, turbidity, ...)
+-   Low power consumption and solar charging for extended operation
+-   Customizable data logging intervals
+-   Data transmission capabilities for remote monitoring with satellite telemetry
+-   Easily expandable for additional sensors (e.g., temperature, pH)
+-   Open-source and relatively low-cost
+
+### Licensing
+
+[back to top](#table-of-contents)
+
+----
+
+## Library scope
+
+#### Included in library
+- management of RTC (real time clock) peripheral
+- interface with built-in LED
+- sample tracking designed for use with TPL Nano Timer chip (tracked on nonvolatile memory)
+- sampling functions for a variety of hydrometric and meteorologic sensors (see user docs for full list)
+- data logging to CSV files on SD card 
+- message preparation from sampled data to send in format accepted by MoF database
+- sending text-based messages with single retry and report for failed send
+#### Not included in library
+Communication protocol objects (e.g. SDI-12), pin assignment, and sensor addresses are left to the user to pass into sampling functions for those sensors.<br>
+**Rationale:** Though it adds a little complexity for the user, ultimately it makes the library much more flexible for use with various wiring setups and sensors. This is well-documented for the user in the sampling functions section of the user documentation.<br>
+
+The user must provide parameters (header, letters, multipliers, number of parameters) that seem redundant to allow the data logging and message preparation to work properly.<br>
+**Rationale:** This allows the message preparation especially to manage completely automatically, even allowing the user to send only a subset of the sampled parameters. Trying to automate the production of these parameters caused memory issues on the Feather (RAM issues with too many String objects).<br>
+
+The user writes the logic of the operation of the logger. The basic functions are available but it is up to them to provide the timing framework.
+**Rationale:** This allows the library to be used in more than just one way, and for the sampling interval to be as flexible as possible. In fact it is not even tied to a 15-minute TPL interval, the Iridium modem, or the sensors supported by the library - these could be changed and the library would still be relevant.<br>
+
+Message preparation only prepares the most recent 18 samples to send instead of preparing multiple messages.
+**Rationale:** This was left out due to a lack of time for testing. It is theoretically completely possible to produce multiple messages, either in a loop or to pass them to the sending function as a single String and separate them there. However, there will be a limit on how many messages the logger can attempt to send during a single power cycle as the RockBlock modem can only send one message roughly every 40 seconds.<br>
+
+[back to top](#table-of-contents)
+
+----
+
+## Limitations
+
+### Limitations from hardware/external systems
+- RockBlock 9603 can only send one message roughly every 40 seconds and they are maximum 340 characters long
+
+### Limitations from software design
+- to add any new sensors or sampled parameters, the database must be updated to decode them (letters, multipliers, etc)
+- message structure limits the number of different parameters by the number of single unique characters you can use to represent them at the head of the message 
+- using the Arduino String object simplifies the code but the object is known to have significant issues with heap fragmentation, which can crash the program if there is too much String manipulation 
+    - avoid concatenation as much as possible
+    - can use `String.reserve()` to set space if you're going to have to edit a string a lot
+    - use `F()` inside print statements to let the compiler know not to keep the string literal inside 
+- to use any of the functionality of the library, the user needs to install the libraries for every sensor, even ones they will never use, for the RemoteLogger library to work
+
+[back to top](#table-of-contents)
+
+----
+
+## Interface with MoF database
+To be accepted and decoded successfully at the MoF database entryway, the messages must follow a particular structure. Messages are prepared automatically according to this structure in the `prep_msg` function in the library.
+> \<letters\>:\<datetime\>:\<battery\>:\<memory\>:\<sample\>:\<sample\>:\<sample\>:...
+
+Letters correspond to the sampled parameters defined in the table in the "Designing your own datalogger networks" of the user documentation. 
+
+[back to top](#table-of-contents)
+
+---- 
 
 ## Library add log: 
+
+### Jun 19, 2024:
+- added documentation to RemoteLogger library for setting up the Arduino IDE (README)
+- full example code for OTT, Analite, ultrasonic
+
+
+
+### Jun 17, 2024:
+- removed string parsing functionality from the library -- too many memory overflow issues 
+- user needs to supply the RemoteLogger object with the following parameters:
+    - the header for the CSV file
+    - the number of sampled parameters (length of multipliers array and letters string)
+    - the multipliers for each sampled parameter (not including battery voltage and free memory)
+    - the letters for the start of each message to designate the parameters
+- changed use of multipliers to allow selection of which sampled parameters to send 
+    - put a zero corresponding to the parameters you don't want to send but will still sample
+    - (e.g. OTT only sends first 2 of 6 sampled --> multiplier array: {1000, 10, 0, 0, 0, 0})
+- sampling functions in library for OTT, Analite 195, ultrasonic, SHT31, DS18B20 
+- examples:
+    - blinky
+    - changing utility pins
+    - test Iridium 
+    - prep message
+    - test for DS18B20 (continuous measurement to serial)
+
+
+
+### Jun 12, 2024:
+- wrote a little instruction document for setting up the MCU (roughly follows the Adafruit setup tutorial with library installation specific to remote loggers) - see setup.md on rp_edits homepage
+    - this needs edits to accomodate for Mac users, add photos
+
+
+
+### Jun 5-6, 2024:
+Functions of logger to add to library:
+- [x] basic functions (blink, csv write, battery sample)
+- [x] irid functions (send, test, update RTC)
+- [x] prep message to send over iridium from CSV
+    - needs: 
+        - format of header string (e.g. "sffff") for CSV parser
+        - the names of each column - Map object? (like a dictionary)
+        - variable number of spaces to hold data points (up to 6 for OTT) - float array? --> ended up doing a loop, held in CSV parser until accessed each loop
+- [ ] setup functions
+    - [x] start data busses (SDI-12, I2C, etc) --> make this responsibility of user
+    - [x] start SD card
+    - [x] start RTC
+    - [ ] read parameters from param file
+    - [ ] run test mode function (test params, write to file, print a bunch of stuff to serial)
+- [ ] sampling functions
+    - [x] Hydros
+    - [x] OTT (easy to do - same SDI-12 as HYDROS, only measurement command changed)
+    - [x] Analite (analog)
+    - [x] ultrasonic (digital - needs 3 pins, no bus)
+- [ ] take measurement upper function - low priority
+    - needs:
+        - variable length list of sampling functions - callable objects
+        - 
+- [x] setters for pin assignments
+
+#### Notes:
+- end goal: want to be able to start a type of connection (SDI-12, I2C, etc) with connected pins and header info as input
+
+sample_hydros_M:
+- have sensor address and SDI12 object as input - could attach two Hydros units if you want, or another different SDI-12 compatible sensor 
+- user is responsible for creating SDI12 object and beginning connection
+- can do same thing for both OTT sample functions -- maybe could even make all into one sample_sdi12 function under the hood (supply measurement command as well as bus and sensor address)
+
+prep_msg:
+- changed to numbered indexing - faster, no type issues between String and char array types
+- kept the header parsing to use sampled data headers to access letter headers and value multipliers (in dictionary)
+
+
+
+### Jun 4, 2024:
+- basic data logger functions into library: blinky, write_to_csv, sample_batt_v, tpl_done (new), send_msg + helper function sync_clock
+- removed watchdog from Iridium send_msg -- look out for issues this may cause 
+    - didn't fully understand how it worked -- seemed to be enabled and disabled around no code (so where would it get stuck?)
+- all in library_v0.2 folder
+
 
 
 ### Mar 27, 2024:
@@ -93,4 +266,12 @@ Notes:
 - how do I test functionality of the whole system? need access to the readings? 
 - eventually add more comments, code will also be more readable with the library
 
+[back to top](#table-of-contents)
 
+----
+
+## Acknowledgements and Credits
+
+[back to top](#table-of-contents)
+
+----
