@@ -7,7 +7,6 @@
 // CTD RED = PIN 11 (DATA)
 // CTD BLACK = 12V GROUND
 
-
 /*Include the libraries we need*/
 #include <time.h>
 #include <RTClib.h>             //Needed for communication with Real Time Clock
@@ -20,18 +19,24 @@
 #include <QuickStats.h>         // Stats
 #include <MemoryFree.h>         // https://github.com/mpflaga/Arduino-MemoryFree
 
-/*Define global constants*/
+// /*Define global constants*/
 const byte chipSelect = 4;      // Chip select pin for SD card
 const byte led = 8;             // Built in led pin
 const byte vbatPin = 9;         // Batt pin
 const byte dataPin_OBS = 12;        // The pin of the SDI-12 data bus for Observator
 const byte dataPin_CTD = 11;        // The pin of the SDI-12 data bus for Observator
 const byte IridSlpPin = 13;     // Power base PN222 2 transistor pin to Iridium modem
-const byte TurbAlog = A1;       // Pin for reading analog outout from voltage divder (R1=1000 Ohm, R2=5000 Ohm) conncted to Analite
 
-/*Define global vars */
+float cor_msmt_ctd_stage_m = 97.895;// surveyed stage from sensor at time of offset
+float cor_msmt_ctd_wl_m = 0.783;// water level from sensor at time of offset
+float cor_msmt_ctd_offset_m = cor_msmt_ctd_stage_m-cor_msmt_ctd_wl_m;// water level from sensor at time of offset
+
+const byte irid_interval = 2; // Communication interval (in hours)
+const byte irid_on = 1; // 1 = ON, 0 = OFF 
+
+// /*Define global vars */
 String my_letter = "ABCD";
-String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm,nep_temp,nep_med,nep_mean,nep_min,nep_max";
+String my_header = "datetime,batt_v,memory,water_level_mm,water_temp_c,water_ec_dcm,nep_temp,nep_med,nep_mean,nep_min,nep_max,cor_msmt_ctd_stage_m,cor_msmt_ctd_wl_m";
 int err; 
 
 String myCommand = "";    // SDI-12 command var
@@ -41,7 +46,7 @@ String sdiResponse = "";  // SDI-12 responce var
 #define IridiumSerial Serial1
 
 /*SDI-12 sensor address, assumed to be 0*/
-#define SENSOR_ADDRESS_OBS 1
+#define SENSOR_ADDRESS_OBS 1 // HAD TO RESET USING COMMAND 
 #define SENSOR_ADDRESS_CTD 0
 
 /*Create library instances*/
@@ -68,14 +73,18 @@ String take_measurement() {
   
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," + 
-    parseData(sample_hydros_M()) + "," + sample_observator_M6_statistical();
+    parseData(sample_hydros_M()) + "," + 
+    sample_observator_M_single() + "," + 
+    String(cor_msmt_ctd_stage_m) + "," + 
+    String(cor_msmt_ctd_wl_m);
+    // sample_observator_M6_statistical();
 
   return msmt;}
 
 String prep_msg(){
   
   SD.begin(chipSelect);
-  CSV_Parser cp("sffffffffff", true, ',');  // Set paramters for parsing the log file
+  CSV_Parser cp("sffffffffffff", true, ',');  // Set paramters for parsing the log file
   cp.readSDfile("/HOURLY.csv");
   int num_rows = cp.getRowsCount();  //Get # of rows
     
@@ -99,7 +108,7 @@ String prep_msg(){
   for (int i = 0; i < num_rows; i++) {  //For each observation in the IRID.csv
     datastring_msg = 
       datastring_msg + 
-      String(round(out_water_level_mm[i])) + ',' + 
+      String(round(out_water_level_mm[i]+(cor_msmt_ctd_offset_m*1000))) + ',' + 
       String(round(out_water_temp_c[i]*10)) + ',' + 
       String(round(out_water_ec_dcm[i])) + ',' + 
       String(round(out_ntu[i])) + ':';              
@@ -109,7 +118,6 @@ String prep_msg(){
 
 void setup(void) {
  
-  delay(10000);
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
   pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
   
@@ -139,6 +147,13 @@ void setup(void) {
   delay(100);
   Serial.begin(9600);
 
+  Serial.print("cor_msmt_ctd_stage_m: ");
+  Serial.println(cor_msmt_ctd_stage_m);
+  Serial.print("cor_msmt_ctd_wl_m: ");
+  Serial.println(cor_msmt_ctd_wl_m);
+  Serial.print("cor_msmt_ctd_offset_m: ");
+  Serial.println(cor_msmt_ctd_offset_m);
+
   }
 
 void loop(void) {
@@ -152,12 +167,13 @@ void loop(void) {
   // TAKE MEASUREMENT
   String sample = take_measurement();
   Serial.println(present_time.timestamp());
+  Serial.println(my_header);
   Serial.print("Sample: ");
   Serial.println(sample);
   
   // WRITE TO DATA.csv
   Serial.println("Write to /DATA.csv");
-  write_to_csv(my_header + ",comment", present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
+  write_to_csv(my_header, present_time.timestamp() + "," + sample, "/DATA.csv");// SAMPLE - WRITE TO CSV
 
   // INCREMENT TRACKING.csv to know how many samples have been taken
   Serial.print("Add row to /TRACKING.csv = ");
@@ -167,7 +183,7 @@ void loop(void) {
   int num_rows_tracking = cp.getRowsCount()-1;  //Get # of rows minus header
   Serial.println(num_rows_tracking);
   blinky(num_rows_tracking,100,200,2000);
-  
+    
   // HOW MANY SAMPLES UNTIL YOU WRITE TO HOURLY (for TPL at 15m, then this should be >=4)
   if(num_rows_tracking == 4){ 
     
@@ -175,13 +191,13 @@ void loop(void) {
     Serial.print("Write to /HOURLY.csv = ");
     write_to_csv(my_header, present_time.timestamp() + "," + sample, "/HOURLY.csv");
     SD.begin(chipSelect);
-    CSV_Parser cp("sffffffffff", true, ',');  // Set paramters for parsing the log file
+    CSV_Parser cp("sffffffffffff", true, ',');  // Set paramters for parsing the log file
     cp.readSDfile("/HOURLY.csv");
     int num_rows_hourly = cp.getRowsCount();  //Get # of rows minus header
     Serial.println(num_rows_hourly);
     
     // If HOURLY >= 2 rows, then send
-    if(num_rows_hourly >= 1 & num_rows_hourly < 10){
+    if(num_rows_hourly >= irid_interval & num_rows_hourly < 10){
       
       // PARSE MSG FROM HOURLY.csv
       Serial.print("Irid msg = ");
@@ -189,15 +205,17 @@ void loop(void) {
       Serial.println(msg);
 
       // SEND!
-      int irid_err = send_msg(msg); 
-      
-      // IF SUCCESS, delete hourly (if not, will try again at next hourly interval)
-      if(irid_err == 0){
-        Serial.println("Message sent! Removing /HOURLY.csv");
-        SD.remove("/HOURLY.csv");        
-        Serial.println("Remove tracking");
-        SD.remove("/TRACKING.csv");    
-        }      
+      if(irid_on == 1){
+        int irid_err = send_msg(msg); 
+        
+        // IF SUCCESS, delete hourly (if not, will try again at next hourly interval)
+        if(irid_err == 0){
+          Serial.println("Message sent! Removing /HOURLY.csv");
+          SD.remove("/HOURLY.csv");        
+          Serial.println("Remove tracking");
+          SD.remove("/TRACKING.csv");    
+          }
+      }      
       }
 
     // If HOURLY > 10 rows, then delete it! Probably too big to send
@@ -316,12 +334,14 @@ int send_msg(String my_msg) {
 
   return err;}
 
+
 String sample_observator_M_wipe() {
+  
+  Serial.println("wipe start");
   // Ensure both SDI12 objects are properly initialized
   mySDI12_OBS.begin();
   
-  // Clear any previous data
-  mySDI12_OBS.clearBuffer();
+  // Clear any previous data  // mySDI12_OBS.clearBuffer();
   
   // Create the command
   String myCommand = String(SENSOR_ADDRESS_OBS) + "M1!";
@@ -330,17 +350,93 @@ String sample_observator_M_wipe() {
   mySDI12_OBS.sendCommand(myCommand);
   
   // Wait for wipe operation to complete
-  delay(16000);
+  delay(6000);
   
-  // Clear buffer again
+  // Clear buffer again // mySDI12_OBS.clearBuffer();
+  
+  mySDI12_OBS.end();
+  
+  Serial.println("wipe complete");
+
+  return "wiped";
+  };
+
+String sample_observator_M_single() {
+
+  // Ensure both SDI12 objects are properly initialized
+  mySDI12_OBS.begin();
+  
+  // Clear any previous data
+  mySDI12_OBS.clearBuffer();
+  
+  String sdiResponse = "";  // Local response string
+  
+  // Create and send the measurement command
+  String myCommand = String(SENSOR_ADDRESS_OBS) + "M!";
+  mySDI12_OBS.sendCommand(myCommand);
+  delay(30);  // wait for initial response
+  
+  // Collect response to M6 command
+  while (mySDI12_OBS.available()) {
+    char c = mySDI12_OBS.read();
+    if ((c != '\n') && (c != '\r')) {
+      sdiResponse += c;
+      delay(10);
+    }
+  }
+  
+  Serial.println("OBS M command response: " + sdiResponse);
+  
+  // Clear buffer after reading response
+  mySDI12_OBS.clearBuffer();
+  
+  // Wait for measurement to complete (this is a long measurement)
+  Serial.println("waiting for response...");
+  delay(10000);
+  
+  // Clear response string for data
+  sdiResponse = "";
+  
+  // Request data
+  myCommand = String(SENSOR_ADDRESS_OBS) + "D1!";
+  // Serial.println(myCommand);
+  mySDI12_OBS.sendCommand(myCommand);
+  delay(30);
+  
+  // Collect data response
+  while (mySDI12_OBS.available()) {
+    char c = mySDI12_OBS.read();
+    // Serial.println(c);
+    if ((c != '\n') && (c != '\r')) {
+      sdiResponse += c;
+      delay(10);
+    }
+  }
+  // Serial.println(sdiResponse.length());
+  // Process response if valid
+  if (sdiResponse.length() > 1) {
+    // Remove address and first separator
+    sdiResponse = sdiResponse.substring(2);
+    // Serial.println(sdiResponse);
+    // Replace + with commas for CSV format
+    for (int i = 0; i < sdiResponse.length(); i++) {
+      if (sdiResponse.charAt(i) == '+') {
+        sdiResponse.setCharAt(i, ',');
+      }
+    }
+  } else {
+    sdiResponse = "Error: No valid data received";
+  }
+  
+  // Final buffer clear
   mySDI12_OBS.clearBuffer();
   
   mySDI12_OBS.end();
   
-  return "wiped";
-  };
+  return sdiResponse;}
 
 String sample_observator_M6_statistical() {
+
   // Ensure both SDI12 objects are properly initialized
   mySDI12_OBS.begin();
   
@@ -434,7 +530,7 @@ String sample_hydros_M() {
     }
   }
   
-  Serial.println("M command response: " + sdiResponse);
+  Serial.println("CTD M command response: " + sdiResponse);
   
   // Clear buffer after reading response
   mySDI12_CTD.clearBuffer();

@@ -1,0 +1,20 @@
+CTD 
+- Black -- 12V -
+- White -- 12V + 
+- Red -- Data Pin -- Pin 11
+- Bare
+
+OBS
+- Green -- 12V-
+- Brown -- 12V+
+- White -- Data Pin -- Pin 12
+
+RTC 
+
+SOLAR
+
+ROCK BLOCK 9603
+
+TPL 5110
+
+Feather M0

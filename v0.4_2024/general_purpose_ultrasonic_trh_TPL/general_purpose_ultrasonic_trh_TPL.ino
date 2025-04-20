@@ -100,7 +100,9 @@ String prep_msg(){
 }
 
 void setup(void) {
-    
+  
+  delay(2000);
+  Serial.println("Starting up...");
   pinMode(13, OUTPUT); digitalWrite(13, LOW); delay(50);
   pinMode(led, OUTPUT); digitalWrite(led, HIGH); delay(50); digitalWrite(led, LOW); delay(50);
   
@@ -137,9 +139,11 @@ void loop(void) {
     
   // READ TIME
   DateTime present_time = rtc.now();
-
+  // Serial.println(present_time.timestamp());
+  
   // TAKE MEASUREMENT
   String sample = take_measurement();
+  Serial.println(my_header);
   Serial.println(present_time.timestamp());
   Serial.print("Sample: ");
   Serial.println(sample);
@@ -170,7 +174,7 @@ void loop(void) {
     Serial.println(num_rows_hourly);
     
     // If HOURLY >= 2 rows, then send
-    if(num_rows_hourly >= 6 & num_rows_hourly < 10){
+    if(num_rows_hourly >= 2 & num_rows_hourly < 10){
       
       // PARSE MSG FROM HOURLY.csv
       Serial.print("Irid msg = ");
@@ -313,6 +317,7 @@ int send_msg(String my_msg) {
 
 long sample_ultrasonic(){
 
+  Serial.println("starting ultrasonic");
   pinMode(triggerPin, OUTPUT);       //Set ultrasonic ranging trigger pin as OUTPUT
   pinMode(pulsePin, INPUT);          //Set ultrasonic pulse width pin as INPUT
   float values[10];          //Array for storing sampled distances
@@ -321,6 +326,7 @@ long sample_ultrasonic(){
   for (int16_t i = 0; i < 10; i++)  //Take N samples
   {
     int32_t duration = pulseIn(pulsePin, HIGH);  //Get the pulse duration (i.e.,time of flight)
+    // Serial.println(duration);
     values[i] = duration;
     delay(150);  //Dont sample too quickly < 7.5 Htz
   }
