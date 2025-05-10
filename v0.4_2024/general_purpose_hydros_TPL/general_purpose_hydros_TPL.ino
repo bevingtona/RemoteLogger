@@ -156,7 +156,7 @@ void loop(void) {
     Serial.println(num_rows_hourly);
     
     // If HOURLY >= 2 rows, then send
-    if(num_rows_hourly >= 6 & num_rows_hourly < 10){
+    if(num_rows_hourly >= 4 & num_rows_hourly < 10){
       
       // PARSE MSG FROM HOURLY.csv
       Serial.print("Irid msg = ");
@@ -247,6 +247,7 @@ String sample_hydros_M() {
     char c = mySDI12.read();
     if ((c != '\n') && (c != '\r')) {
       sdiResponse += c;
+      // Serial.println(c);
       delay(10);  // 1 character ~ 7.5ms
     }
   }
