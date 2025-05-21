@@ -74,11 +74,11 @@ String take_measurement() {
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," + 
     parseData(sample_hydros_M()) + "," + 
-    sample_observator_M_single() + "," + 
+    // sample_observator_M_single() + "," + 
+    sample_observator_M6_statistical() + "," + 
     String(cor_msmt_ctd_stage_m) + "," + 
-    String(cor_msmt_ctd_wl_m);
-    // sample_observator_M6_statistical();
-
+    String(cor_msmt_ctd_wl_m);  
+    
   return msmt;}
 
 String prep_msg(){
@@ -94,8 +94,8 @@ String prep_msg(){
   float *out_water_level_mm = (float *)cp["water_level_mm"];
   float *out_water_temp_c = (float *)cp["water_temp_c"];
   float *out_water_ec_dcm = (float *)cp["water_ec_dcm"];
-  float *out_ntu = (float *)cp["nep_mean"];
-
+  float *out_ntu_obs = (float *)cp["nep_mean"];
+  
   String datastring_msg = 
     my_letter + ":" + 
     String(out_datetimes[0]).substring(2, 4) + 
@@ -111,7 +111,7 @@ String prep_msg(){
       String(round(out_water_level_mm[i]+(cor_msmt_ctd_offset_m*1000))) + ',' + 
       String(round(out_water_temp_c[i]*10)) + ',' + 
       String(round(out_water_ec_dcm[i])) + ',' + 
-      String(round(out_ntu[i])) + ':';              
+      String(round(out_ntu_obs[i])) + ':';              
     }
 
   return datastring_msg;}
@@ -146,6 +146,8 @@ void setup(void) {
   
   delay(100);
   Serial.begin(9600);
+
+  delay(10000);
 
   Serial.print("cor_msmt_ctd_stage_m: ");
   Serial.println(cor_msmt_ctd_stage_m);
@@ -350,7 +352,7 @@ String sample_observator_M_wipe() {
   mySDI12_OBS.sendCommand(myCommand);
   
   // Wait for wipe operation to complete
-  delay(6000);
+  delay(16000);
   
   // Clear buffer again // mySDI12_OBS.clearBuffer();
   
@@ -576,3 +578,4 @@ String sample_hydros_M() {
  mySDI12_CTD.end();
    
   return sdiResponse;}
+

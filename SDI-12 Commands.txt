@@ -1,0 +1,5 @@
+?! -> tells you what the snesor address is (i.e. returns 1 for address 1)
+1! -> returns 1
+1A2! -> Changes address from 1 to 2 and returns 2
+1M! -> Start Measurement, returns: 10014 Where: 0 = address; 001 = time (in seconds) it will take to make the measurement; 4 = number of measurements it will return
+1D0! 
