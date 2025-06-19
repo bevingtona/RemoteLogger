@@ -77,10 +77,10 @@ String take_measurement() {
 
   String msmt = String(sample_batt_v()) + "," + 
     freeMemory() + "," + 
-    parseData(sample_hydros_M()) + "," + 
+    // parseData(sample_hydros_M()) + "," + 
     // sample_observator_M_single() + "," + 
     sample_observator_M6_statistical() + "," + 
-    sample_analite_195() + "," + 
+    // sample_analite_195() + "," + 
     String(cor_msmt_ctd_stage_m) + "," + 
     String(cor_msmt_ctd_wl_m);  
     
@@ -460,7 +460,7 @@ String sample_observator_M6_statistical() {
   delay(5000);
   
 
-\  String sdiResponse = "";  // Local response string
+ String sdiResponse = "";  // Local response string
   
   // Create and send the measurement command
   String myCommand = String(SENSOR_ADDRESS_OBS) + "M6!";
